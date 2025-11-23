@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from math import ceil
 import shutil
 import os
 from pathlib import Path
@@ -8,7 +11,7 @@ from typing import List, Optional
 
 from ..database import get_db
 from ..models import Book, User
-from ..schemas import BookResponse, BookCreate
+from ..schemas import BookResponse, BookCreate, PaginatedBookResponse
 from ..security import get_current_user
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -54,14 +57,50 @@ def create_book(
     db.refresh(db_book)
     return db_book
 
-@router.get("/", response_model=List[BookResponse])
+@router.get("/", response_model=PaginatedBookResponse)
 def get_books(
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    limit: int = 10,
+    genre: Optional[str] = None,
+    condition: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    books = db.query(Book).filter(Book.status == "available").offset(skip).limit(limit).all()
-    return books
+    query = db.query(Book).filter(Book.status == "available")
+    
+    # Применяем фильтры
+    if genre:
+        query = query.filter(Book.genre.ilike(f"%{genre}%"))
+    if condition:
+        query = query.filter(Book.condition == condition)
+    if search:
+        query = query.filter(
+            or_(
+                Book.title.ilike(f"%{search}%"),
+                Book.author.ilike(f"%{search}%"),
+                Book.description.ilike(f"%{search}%")
+            )
+        )
+    
+    # Получаем общее количество
+    total_count = query.count()
+    
+    # Вычисляем смещение
+    skip = (page - 1) * limit
+    
+    # Получаем книги с загруженными владельцами
+    books = query.options(joinedload(Book.owner)).offset(skip).limit(limit).all()
+    
+    # Вычисляем общее количество страниц
+    total_pages = ceil(total_count / limit) if limit > 0 else 1
+    
+    return {
+        "books": books,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "current_page": page,
+        "limit": limit
+    }
 
 @router.get("/my-books", response_model=List[BookResponse])
 def get_my_books(

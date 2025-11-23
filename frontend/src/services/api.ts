@@ -33,13 +33,29 @@ export const authAPI = {
   },
 };
 
+export interface PaginatedResponse<T> {
+  books: T[];
+  total_count: number;
+  total_pages: number;
+  current_page: number;
+  limit: number;
+}
+
 export const booksAPI = {
-  getBooks: () => api.get<Book[]>('/books/'),
+  getBooks: (params?: {
+    page?: number;
+    limit?: number;
+    genre?: string;
+    condition?: string;
+    search?: string;
+  }) => api.get<PaginatedResponse<Book>>('/books/', { params }),
   getMyBooks: () => api.get<Book[]>('/books/my-books'),
   getBook: (id: number) => api.get<Book>(`/books/${id}`),
   createBook: (formData: FormData) => api.post<Book>('/books/', formData),
   updateBook: (id: number, formData: FormData) => api.put<Book>(`/books/${id}`, formData),
   deleteBook: (id: number) => api.delete(`/books/${id}`),
+  getUserProfile: (userId: number) => api.get<User>(`/auth/profile/${userId}`),
+  getUserBooks: (userId: number) => api.get<Book[]>(`/auth/profile/${userId}/books`),
 };
 
 export default api;

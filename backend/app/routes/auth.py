@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 from datetime import timedelta
+from ..models import Book
+from ..schemas import BookResponse
+from typing import List
 import os
 
 from ..database import get_db
@@ -59,3 +63,23 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         "token_type": "bearer",
         "user": user
     }
+
+@router.get("/profile/{user_id}", response_model=UserResponse)
+def get_user_profile(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # Можно убрать эту зависимость для публичного доступа
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.get("/profile/{user_id}/books", response_model=List[BookResponse])
+def get_user_books(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # Можно убрать эту зависимость для публичного доступа
+):
+    books = db.query(Book).filter(Book.owner_id == user_id, Book.status == "available").options(joinedload(Book.owner)).all()
+    return books

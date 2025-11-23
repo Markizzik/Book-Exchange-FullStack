@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
+from typing import List
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -19,6 +20,14 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
+class UserBasicResponse(BaseModel):
+    id: int
+    username: str
+    city: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
 class BookBase(BaseModel):
     title: str
     author: str
@@ -32,6 +41,7 @@ class BookCreate(BookBase):
 class BookResponse(BookBase):
     id: int
     owner_id: int
+    owner: UserBasicResponse  # Добавляем владельца
     cover: Optional[str] = None
     status: str
     created_at: datetime
@@ -44,3 +54,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+class PaginatedBookResponse(BaseModel):
+    books: List[BookResponse]
+    total_count: int
+    total_pages: int
+    current_page: int
+    limit: int

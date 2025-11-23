@@ -8,6 +8,12 @@ export interface User {
   created_at: string;
 }
 
+export interface UserBasic {
+  id: number;
+  username: string;
+  city: string | null;
+}
+
 export interface Book {
   id: number;
   title: string;
@@ -17,6 +23,7 @@ export interface Book {
   condition: string | null;
   cover: string | null;
   owner_id: number;
+  owner: UserBasic; // Добавляем владельца
   status: string;
   created_at: string;
   updated_at: string | null;

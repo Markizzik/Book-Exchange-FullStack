@@ -8,6 +8,8 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import AddBook from './pages/AddBook';
 import EditBook from './pages/EditBook';
+import BookDetails from './pages/BookDetails';
+import UserProfile from './pages/UserProfile';
 import './App.css';
 import './index.css';
 
@@ -25,6 +27,8 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/add-book" element={<AddBook />} />
               <Route path="/edit-book/:id" element={<EditBook />} />
+              <Route path="/book/:id" element={<BookDetails />} />
+              <Route path="/user/:userId" element={<UserProfile />} />
             </Routes>
           </main>
         </div>
