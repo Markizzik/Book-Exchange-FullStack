@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Book } from '../types';
+import { Book, User } from '../types';
 import { booksAPI } from '../services/api';
 import { translateCondition, translateGenre } from '../utils/translations';
 import { useAuth } from '../context/AuthContext';
+import UserStatusIndicator from '../components/UserStatusIndicator';
 
 const UserProfile: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -84,7 +85,15 @@ const UserProfile: React.FC = () => {
           alignItems: 'center',
           marginBottom: '1.5rem'
         }}>
-          <h2>{user.username}</h2>
+           <h2 style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px',
+            margin: 0 
+          }}>
+            {user.username}
+            <UserStatusIndicator userId={user.id} size={16} />
+          </h2>
           {currentUser?.id === user.id && (
             <button 
               onClick={() => navigate('/profile')} 

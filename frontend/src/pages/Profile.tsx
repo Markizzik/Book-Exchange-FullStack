@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Book } from '../types';
-import { booksAPI } from '../services/api';
+import { Book, User, Exchange, ExchangeResponse } from '../types';
+import { booksAPI, exchangesAPI } from '../services/api';
 import { Link } from 'react-router-dom';
+import ExchangeStatus from '../components/ExchangeStatus';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
   const [myBooks, setMyBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [offers, setOffers] = useState<Exchange[]>([]);
+  const [activeTab, setActiveTab] = useState<'requests' | 'offers'>('requests');
+  const [loadingExchanges, setLoadingExchanges] = useState(true);
 
   useEffect(() => {
     const fetchMyBooks = async () => {
@@ -22,7 +27,24 @@ const Profile: React.FC = () => {
     };
 
     fetchMyBooks();
-  }, []);
+
+    const fetchExchanges = async () => {
+      try {
+        const [requestsResponse, offersResponse] = await Promise.all([
+          exchangesAPI.getMyExchanges(),
+          exchangesAPI.getMyOffers()
+        ]);
+        setExchanges(requestsResponse.data);
+        setOffers(offersResponse.data);
+      } catch (error) {
+        console.error('Ошибка при загрузке обменов:', error);
+      }
+    };
+    
+    if (user) {
+      fetchExchanges();
+    }
+  }, [user]);
 
   const handleDeleteBook = async (bookId: number) => {
     if (window.confirm('Вы уверены, что хотите удалить эту книгу?')) {
@@ -99,6 +121,163 @@ const Profile: React.FC = () => {
             }}>
               {user.about}
             </p>
+          </div>
+        )}
+      </div>
+
+      <div className="card mt-3">
+        <h2 className="mb-2">История обменов</h2>
+        
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <button 
+            className={`btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('requests')}
+          >
+            Мои запросы
+          </button>
+          <button 
+            className={`btn ${activeTab === 'offers' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('offers')}
+          >
+            Мои предложения
+          </button>
+        </div>
+      
+        {activeTab === 'requests' && (
+          <div className="book-list">
+            {exchanges.length === 0 ? (
+              <p className="text-center mt-3">Нет активных запросов на обмен</p>
+            ) : (
+              exchanges.map(exchange => (
+                <div key={exchange.id} className="book-item" style={{ padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '0 0 100px' }}>
+                      {exchange.book?.cover ? (
+                        <img
+                          src={`http://localhost:8000/uploads/covers/${exchange.book.cover}`}
+                          alt={exchange.book.title}
+                          className="book-cover-vertical"
+                        />
+                      ) : (
+                        <div className="book-cover-placeholder-vertical">📚</div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                          <h3 className="book-title-vertical">{exchange.book?.title}</h3>
+                          <p className="book-author-vertical">
+                            <strong>Автор:</strong> {exchange.book?.author}
+                          </p>
+                          <p style={{ color: 'var(--text-secondary)' }}>
+                            <strong>Владелец:</strong> {exchange.owner?.username}
+                          </p>
+                        </div>
+                        <ExchangeStatus status={exchange.status as any} />
+                      </div>
+                      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          Запрошено: {new Date(exchange.created_at).toLocaleDateString('ru-RU')}
+                        </span>
+                        {exchange.status === 'pending' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await exchangesAPI.cancelExchange(exchange.id);
+                                setExchanges(exchanges.filter(ex => ex.id !== exchange.id));
+                              } catch (err) {
+                                console.error('Error cancelling exchange:', err);
+                              }
+                            }}
+                            className="btn btn-danger"
+                            style={{ padding: '0.25rem 0.75rem' }}
+                          >
+                            Отменить
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      
+        {activeTab === 'offers' && (
+          <div className="book-list">
+            {offers.length === 0 ? (
+              <p className="text-center mt-3">Нет активных предложений для обмена</p>
+            ) : (
+              offers.map(exchange => (
+                <div key={exchange.id} className="book-item" style={{ padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '0 0 100px' }}>
+                      {exchange.book?.cover ? (
+                        <img
+                          src={`http://localhost:8000/uploads/covers/${exchange.book.cover}`}
+                          alt={exchange.book.title}
+                          className="book-cover-vertical"
+                        />
+                      ) : (
+                        <div className="book-cover-placeholder-vertical">📚</div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                          <h3 className="book-title-vertical">{exchange.book?.title}</h3>
+                          <p className="book-author-vertical">
+                            <strong>Автор:</strong> {exchange.book?.author}
+                          </p>
+                          <p style={{ color: 'var(--text-secondary)' }}>
+                            <strong>Запрашивающий:</strong> {exchange.requester?.username}
+                          </p>
+                        </div>
+                        <ExchangeStatus status={exchange.status as any} />
+                      </div>
+                      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          Предложено: {new Date(exchange.created_at).toLocaleDateString('ru-RU')}
+                        </span>
+                        {exchange.status === 'pending' && (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await exchangesAPI.acceptExchange(exchange.id);
+                                  setOffers(offers.filter(ex => ex.id !== exchange.id));
+                                } catch (err) {
+                                  console.error('Error accepting exchange:', err);
+                                }
+                              }}
+                              className="btn btn-success"
+                              style={{ padding: '0.25rem 0.75rem' }}
+                            >
+                              Принять
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await exchangesAPI.rejectExchange(exchange.id);
+                                  setOffers(offers.filter(ex => ex.id !== exchange.id));
+                                } catch (err) {
+                                  console.error('Error rejecting exchange:', err);
+                                }
+                              }}
+                              className="btn btn-danger"
+                              style={{ padding: '0.25rem 0.75rem' }}
+                            >
+                              Отклонить
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

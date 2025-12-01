@@ -138,73 +138,75 @@ const Catalog: React.FC = () => {
               <>
                 <div className="book-list">
                   {books.map(book => (
-                    <div key={book.id} className="book-item">
-                      {book.cover ? (
-                        <img
-                          src={`http://localhost:8000/uploads/covers/${book.cover}`}
-                          alt={book.title}
-                          className="book-cover-vertical"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                          }}
-                        />
-                      ) : (
-                        <div className="book-cover-placeholder-vertical">
-                          📚
-                        </div>
-                      )}
-                      
-                      <div className="book-content-vertical">
-                        <div className="book-header">
-                          <h3 className="book-title-vertical">{book.title}</h3>
-                          <div className="book-meta-vertical">
-                            {book.genre && (
-                              <span className="book-tag">{translateGenre(book.genre)}</span>
-                            )}
-                            {book.condition && (
-                              <span className="book-tag">
-                                {translateCondition(book.condition)}
-                              </span>
-                            )}
+                    <Link to={`/book/${book.id}`} style={{ textDecoration: 'none', color: 'inherit' }} key={book.id}>
+                      <div className="book-item">
+                        {book.cover ? (
+                          <img
+                            src={`http://localhost:8000/uploads/covers/${book.cover}`}
+                            alt={book.title}
+                            className="book-cover-vertical"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                            }}
+                          />
+                        ) : (
+                          <div className="book-cover-placeholder-vertical">
+                            📚
                           </div>
-                        </div>
-                        
-                        <p className="book-author-vertical">
-                          <strong>Автор:</strong> {book.author}
-                        </p>
-                        
-                        {book.description && (
-                          <p className="book-description">
-                            {book.description.length > 200 
-                              ? `${book.description.substring(0, 200)}...` 
-                              : book.description
-                            }
-                          </p>
                         )}
                         
-                        <div className="book-footer">
-                          <div className="book-owner">
-                            <span>Добавлено: </span>
-                            <Link 
-                              to={`/user/${book.owner.id}`} 
-                              className="user-link"
-                              style={{ color: 'var(--primary-color)', fontWeight: '500', textDecoration: 'none' }}
-                            >
-                              {book.owner.username}
-                            </Link>
-                            {book.owner.city && (
-                              <span style={{ color: 'var(--text-secondary)', marginLeft: '5px' }}>
-                                ({book.owner.city})
-                              </span>
-                            )}
+                        <div className="book-content-vertical">
+                          <div className="book-header">
+                            <h3 className="book-title-vertical">{book.title}</h3>
+                            <div className="book-meta-vertical">
+                              {book.genre && (
+                                <span className="book-tag">{translateGenre(book.genre)}</span>
+                              )}
+                              {book.condition && (
+                                <span className="book-tag">
+                                  {translateCondition(book.condition)}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="book-date">
-                            {new Date(book.created_at).toLocaleDateString('ru-RU')}
+                          
+                          <p className="book-author-vertical">
+                            <strong>Автор:</strong> {book.author}
+                          </p>
+                          
+                          {book.description && (
+                            <p className="book-description">
+                              {book.description.length > 200 
+                                ? `${book.description.substring(0, 200)}...` 
+                                : book.description
+                              }
+                            </p>
+                          )}
+                          
+                          <div className="book-footer">
+                            <div className="book-owner">
+                              <span>Добавлено: </span>
+                              <Link 
+                                to={`/user/${book.owner.id}`} 
+                                className="user-link"
+                                style={{ color: 'var(--primary-color)', fontWeight: '500', textDecoration: 'none' }}
+                              >
+                                {book.owner.username}
+                              </Link>
+                              {book.owner.city && (
+                                <span style={{ color: 'var(--text-secondary)', marginLeft: '5px' }}>
+                                  ({book.owner.city})
+                                </span>
+                              )}
+                            </div>
+                            <div className="book-date">
+                              {new Date(book.created_at).toLocaleDateString('ru-RU')}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
 

@@ -31,3 +31,16 @@ export const translateGenre = (genre: string | null): string => {
   
   return translations[genre] || genre;
 };
+
+export const translateStatus = (status: string | null): string => {
+  if (!status) return 'Не указано';
+  const translations: { [key: string]: string } = {
+    'pending': 'Ожидает подтверждения',
+    'accepted': 'Принято',
+    'rejected': 'Отклонено',
+    'cancelled': 'Отменено',
+    'exchanged': 'Обменено',
+    'available': 'Доступна для обмена'
+  };
+  return translations[status] || status;
+};

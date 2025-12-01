@@ -41,7 +41,7 @@ class BookCreate(BookBase):
 class BookResponse(BookBase):
     id: int
     owner_id: int
-    owner: UserBasicResponse  # Добавляем владельца
+    owner: UserBasicResponse 
     cover: Optional[str] = None
     status: str
     created_at: datetime
@@ -61,3 +61,23 @@ class PaginatedBookResponse(BaseModel):
     total_pages: int
     current_page: int
     limit: int
+
+class ExchangeBase(BaseModel):
+    book_id: int
+    requester_id: int
+    owner_id: int
+    status: Optional[str] = "pending"
+
+class ExchangeCreate(ExchangeBase):
+    pass
+
+class ExchangeResponse(ExchangeBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    book: BookResponse
+    requester: UserResponse
+    owner: UserResponse
+
+    class Config:
+        from_attributes = True

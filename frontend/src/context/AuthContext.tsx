@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, AuthResponse } from '../types';
 import { authAPI } from '../services/api';
+import api from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -39,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { access_token, user } = response.data;
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(user));
+    api.defaults.headers.Authorization = `Bearer ${access_token}`;
     setUser(user);
   };
 
@@ -54,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { access_token, user } = response.data;
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(user));
+    api.defaults.headers.Authorization = `Bearer ${access_token}`;
     setUser(user);
   };
 

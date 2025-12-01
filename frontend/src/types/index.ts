@@ -34,3 +34,22 @@ export interface AuthResponse {
   token_type: string;
   user: User;
 }
+
+export interface Exchange {
+  id: number;
+  book_id: number;
+  requester_id: number;
+  owner_id: number;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+  created_at: string;
+  updated_at?: string;
+  book?: Book;
+  requester?: User;
+  owner?: User;
+}
+
+export interface ExchangeResponse extends Exchange {
+  book: Book;
+  requester: User;
+  owner: User;
+}

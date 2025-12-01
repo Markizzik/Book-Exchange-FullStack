@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, Book, User } from '../types';
+import { AuthResponse, Book, User, Exchange, ExchangeResponse } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -40,6 +40,15 @@ export interface PaginatedResponse<T> {
   current_page: number;
   limit: number;
 }
+
+export const exchangesAPI = {
+  createExchange: (exchangeData: any) => api.post<ExchangeResponse>('/exchanges/', exchangeData),
+  getMyExchanges: () => api.get<Exchange[]>(`/exchanges/my-requests`),
+  getMyOffers: () => api.get<Exchange[]>(`/exchanges/my-offers`),
+  acceptExchange: (exchangeId: number) => api.put<ExchangeResponse>(`/exchanges/${exchangeId}/accept`),
+  rejectExchange: (exchangeId: number) => api.put<ExchangeResponse>(`/exchanges/${exchangeId}/reject`),
+  cancelExchange: (exchangeId: number) => api.delete(`/exchanges/${exchangeId}/cancel`),
+};
 
 export const booksAPI = {
   getBooks: (params?: {

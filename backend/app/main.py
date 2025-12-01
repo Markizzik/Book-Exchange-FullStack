@@ -5,11 +5,33 @@ import os
 from pathlib import Path
 
 from .database import engine, Base
-from .routes import auth, books
+from .routes import auth, books, exchanges
+from .websockets import SocketManager  # Импортируем SocketManager
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # При запуске приложения
+    print("🚀 Запуск приложения...")
+    print("🔌 Инициализация вебсокет-сервера...")
+    
+    # Создаем таблицы
+    print("📊 Создание таблиц в базе данных...")
+    Base.metadata.create_all(bind=engine)
+    
+    yield
+    
+    # При остановке приложения
+    print("🛑 Остановка приложения...")
+    if hasattr(socket_manager, 'sio'):
+        print("🔌 Остановка вебсокет-сервера...")
+        await socket_manager.sio.eio.shutdown()
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Book Exchange API", version="1.0.0")
+app = FastAPI(title="Book Exchange API", version="1.0.0", lifespan=lifespan)
+
+socket_manager = SocketManager()
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,16 +39,22 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = BASE_DIR / "uploads" / "covers"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+app.state.socket_manager = socket_manager
+
+app.mount("/ws", socket_manager.app)
+
 app.mount("/uploads", StaticFiles(directory=BASE_DIR / "uploads"), name="uploads")
 
 app.include_router(auth.router)
 app.include_router(books.router)
+app.include_router(exchanges.router)
 
 @app.get("/")
 def read_root():
@@ -34,7 +62,12 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "database": "postgresql"}
+    return {
+        "status": "healthy",
+        "database": "postgresql",
+        "websockets": "enabled",
+        "online_users": len(socket_manager.online_users)
+    }
 
 if __name__ == "__main__":
     import uvicorn
