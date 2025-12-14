@@ -115,9 +115,9 @@ const BookDetail: React.FC = () => {
       <div className="card">
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
           <div style={{ flex: '0 0 300px', minWidth: '250px' }}>
-            {book.cover ? (
+            {book.cover_url ? (
               <img 
-                src={`http://localhost:8000/uploads/covers/${book.cover}`} 
+                src={book.cover_url}
                 alt={book.title}
                 style={{ 
                   width: '100%', 

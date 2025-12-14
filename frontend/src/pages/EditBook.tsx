@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { booksAPI } from '../services/api';
+import { Book } from '../types';
 
 const EditBook: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +14,7 @@ const EditBook: React.FC = () => {
   });
   const [cover, setCover] = useState<File | null>(null);
   const [currentCover, setCurrentCover] = useState<string | null>(null);
+  const [book, setBook] = useState<Book | null>(null); // Новое состояние для хранения полного объекта книги
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -22,15 +24,16 @@ const EditBook: React.FC = () => {
     const fetchBook = async () => {
       try {
         const response = await booksAPI.getBook(Number(id));
-        const book = response.data;
+        const bookData = response.data;
+        setBook(bookData); // Сохраняем полный объект книги
         setFormData({
-          title: book.title,
-          author: book.author,
-          description: book.description || '',
-          genre: book.genre || '',
-          condition: book.condition || ''
+          title: bookData.title,
+          author: bookData.author,
+          description: bookData.description || '',
+          genre: bookData.genre || '',
+          condition: bookData.condition || ''
         });
-        setCurrentCover(book.cover);
+        setCurrentCover(bookData.cover);
       } catch (err: any) {
         setError('Книга не найдена');
       } finally {
@@ -162,15 +165,46 @@ const EditBook: React.FC = () => {
                   <p style={{ fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                     Текущая обложка:
                   </p>
-                  <img 
-                    src={`http://localhost:8000/uploads/covers/${currentCover}`} 
-                    alt="Current cover"
-                    style={{ 
+                  {/* Обновленное отображение обложки с поддержкой MinIO */}
+                  {book?.cover_url ? (
+                    <img 
+                      src={book.cover_url} 
+                      alt="Current cover"
+                      style={{ 
+                        maxWidth: '150px', 
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                      }}
+                    />
+                  ) : currentCover ? (
+                    <img 
+                      src={`http://localhost:8000/uploads/covers/${currentCover}`} 
+                      alt="Current cover"
+                      style={{ 
+                        maxWidth: '150px', 
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)'
+                      }}
+                    />
+                  ) : (
+                    <div style={{ 
                       maxWidth: '150px', 
+                      height: '200px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       borderRadius: '8px',
-                      border: '1px solid var(--border-color)'
-                    }}
-                  />
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: '2rem'
+                    }}>
+                      📚
+                    </div>
+                  )}
                 </div>
               )}
 

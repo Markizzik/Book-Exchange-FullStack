@@ -140,9 +140,9 @@ const Catalog: React.FC = () => {
                   {books.map(book => (
                     <Link to={`/book/${book.id}`} style={{ textDecoration: 'none', color: 'inherit' }} key={book.id}>
                       <div className="book-item">
-                        {book.cover ? (
-                          <img
-                            src={`http://localhost:8000/uploads/covers/${book.cover}`}
+                        {book.cover_url ? (
+                          <img  
+                            src={book.cover_url}  
                             alt={book.title}
                             className="book-cover-vertical"
                             onError={(e) => {

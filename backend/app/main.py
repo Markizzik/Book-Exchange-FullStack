@@ -42,15 +42,11 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / "uploads" / "covers"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app.state.socket_manager = socket_manager
 
 app.mount("/ws", socket_manager.app)
 
-app.mount("/uploads", StaticFiles(directory=BASE_DIR / "uploads"), name="uploads")
 
 app.include_router(auth.router)
 app.include_router(books.router)

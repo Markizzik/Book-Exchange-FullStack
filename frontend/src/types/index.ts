@@ -22,6 +22,7 @@ export interface Book {
   genre: string | null;
   condition: string | null;
   cover: string | null;
+  cover_url?: string | null;
   owner_id: number;
   owner: UserBasic; // Добавляем владельца
   status: string;

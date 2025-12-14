@@ -13,12 +13,11 @@ from ..database import get_db
 from ..models import Book, User
 from ..schemas import BookResponse, BookCreate, PaginatedBookResponse
 from ..security import get_current_user
+from ..minio_client import minio_client  # Добавляем импорт MinIO клиента
 
 router = APIRouter(prefix="/books", tags=["books"])
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-UPLOAD_DIR = BASE_DIR / "uploads/covers"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 
 @router.post("/", response_model=BookResponse)
@@ -33,14 +32,20 @@ def create_book(
     current_user: User = Depends(get_current_user)
 ):
     cover_filename = None
+    cover_url = None
+
     if cover:
-        file_extension = cover.filename.split(".")[-1]
+        file_extension = cover.filename.split(".")[-1] if "." in cover.filename else "jpg"
         cover_filename = f"{datetime.utcnow().timestamp()}.{file_extension}"
-        cover_path = os.path.join(UPLOAD_DIR, cover_filename)
-        
-        with open(cover_path, "wb") as buffer:
-            shutil.copyfileobj(cover.file, buffer)
-        print(f"Cover saved: {cover_path}")
+        try:
+            # Сохраняем файл во временный буфер
+            cover.file.seek(0)
+            cover_url = minio_client.upload_cover(cover.file, cover_filename)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Ошибка загрузки обложки: {str(e)}"
+            )
     
     db_book = Book(
         title=title,
@@ -49,6 +54,7 @@ def create_book(
         genre=genre,
         condition=condition,
         cover=cover_filename,
+        cover_url=cover_url,  # Сохраняем URL из MinIO
         owner_id=current_user.id
     )
     
@@ -90,6 +96,13 @@ def get_books(
     
     # Получаем книги с загруженными владельцами
     books = query.options(joinedload(Book.owner)).offset(skip).limit(limit).all()
+    
+    for book in books:
+        if book.cover and not book.cover_url:
+            # Если URL не сохранен в базе, генерируем его из MinIO
+            protocol = "https" if minio_client.secure else "http"
+            host = minio_client.endpoint_url.split("://")[1]
+            book.cover_url = f"{protocol}://{host}/{minio_client.bucket_name}/{book.cover}"
     
     # Вычисляем общее количество страниц
     total_pages = ceil(total_count / limit) if limit > 0 else 1
@@ -142,20 +155,28 @@ def update_book(
     book.genre = genre
     book.condition = condition
     
-    if cover:
-        if cover and cover.filename:
-            old_cover_path = os.path.join(UPLOAD_DIR, book.cover)
-            if os.path.exists(old_cover_path):
-                os.remove(old_cover_path)
+    if cover and cover.filename:
+        # Удаляем старую обложку из MinIO, если она существует
+        if book.cover:
+            try:
+                minio_client.delete_cover(book.cover)
+            except Exception as e:
+                print(f"Ошибка удаления старой обложки: {str(e)}")
         
-        file_extension = cover.filename.split(".")[-1]
-        cover_filename = f"{datetime.utcnow().timestamp()}.{file_extension}"
-        cover_path = os.path.join(UPLOAD_DIR, cover_filename)
-        
-        with open(cover_path, "wb") as buffer:
-            shutil.copyfileobj(cover.file, buffer)
-        
-        book.cover = cover_filename
+        # Загружаем новую обложку в MinIO
+        try:
+            file_extension = cover.filename.split(".")[-1] if "." in cover.filename else "jpg"
+            cover_filename = f"{datetime.utcnow().timestamp()}.{file_extension}"
+            cover.file.seek(0)
+            cover_url = minio_client.upload_cover(cover.file, cover_filename)
+            
+            book.cover = cover_filename
+            book.cover_url = cover_url
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Ошибка загрузки новой обложки: {str(e)}"
+            )
     
     db.commit()
     db.refresh(book)
@@ -175,9 +196,10 @@ def delete_book(
         raise HTTPException(status_code=403, detail="Не достаточно прав")
     
     if book.cover:
-        cover_path = os.path.join(UPLOAD_DIR, book.cover)
-        if os.path.exists(cover_path):
-            os.remove(cover_path)
+        try:
+            minio_client.delete_cover(book.cover)
+        except Exception as e:
+            print(f"Ошибка удаления обложки: {str(e)}")
     
     db.delete(book)
     db.commit()

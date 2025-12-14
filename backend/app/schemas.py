@@ -43,6 +43,7 @@ class BookResponse(BookBase):
     owner_id: int
     owner: UserBasicResponse 
     cover: Optional[str] = None
+    cover_url: Optional[str] = None
     status: str
     created_at: datetime
     updated_at: Optional[datetime] = None

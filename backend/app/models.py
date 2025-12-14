@@ -24,6 +24,7 @@ class Book(Base):
     genre = Column(String(100))
     condition = Column(String(50))
     cover = Column(String(500))
+    cover_url = Column(String(500))
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(String(20), default="available")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

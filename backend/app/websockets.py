@@ -33,8 +33,7 @@ class SocketManager:
     def setup_events(self):
         @self.sio.event
         async def connect(sid, environ, auth):
-            print(f"🔌 Клиент подключен: {sid}")
-            # Получаем токен из query параметров
+            print(f"Клиент подключен: {sid}")
             query_string = environ.get('QUERY_STRING', '')
             token = None
             
@@ -43,7 +42,6 @@ class SocketManager:
             
             if token:
                 try:
-                    # Используем jose.jwt.decode вместо jwt.decode
                     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
                     user_id = payload.get('user_id')
                     
@@ -54,33 +52,30 @@ class SocketManager:
                         self.online_users[user_id_str].add(sid)
                         await self.sio.save_session(sid, {'user_id': user_id_str})
                         await self.sio.emit('auth_success', {'user_id': user_id_str}, to=sid)
-                        # Отправляем уведомления о pending exchanges
                         await self.send_pending_exchanges(user_id_str)
                         return True
                 except Exception as e:
-                    print(f"❌ Ошибка аутентификации: {str(e)}")
+                    print(f"Ошибка аутентификации: {str(e)}")
                     await self.sio.emit('auth_error', {'error': str(e)}, to=sid)
             
-            # Если аутентификация не прошла
             await self.sio.emit('auth_error', {'error': 'Требуется аутентификация'}, to=sid)
             return False
 
         @self.sio.event
         async def disconnect(sid):
-            print(f"🔌 Клиент отключен: {sid}")
-            # Находим и удаляем пользователя
+            print(f"Клиент отключен: {sid}")
             user_id_to_remove = None
             for user_id, sessions in self.online_users.items():
                 if sid in sessions:
                     user_id_to_remove = user_id
                     sessions.remove(sid)
-                    if not sessions:  # Если нет активных сессий для пользователя
+                    if not sessions:
                         del self.online_users[user_id]
                     break
             
             if user_id_to_remove:
                 await self.sio.emit('user_offline', {'user_id': user_id_to_remove})
-                print(f"👤 Пользователь {user_id_to_remove} отключен")
+                print(f"Пользователь {user_id_to_remove} отключен")
 
         @self.sio.event
         async def authenticate(sid, token_data):
@@ -93,25 +88,23 @@ class SocketManager:
                 
                 if not token or not user_id:
                     await self.sio.emit('auth_error', {'error': 'Требуется токен и user_id'}, to=sid)
-                    print("❌ Ошибка аутентификации: отсутствует токен или user_id")
+                    print("Ошибка аутентификации: отсутствует токен или user_id")
                     return False
                 
-                # Просто сохраняем пользователя (в реальном проекте здесь должна быть проверка токена)
                 if user_id not in self.online_users:
                     self.online_users[user_id] = set()
                 self.online_users[user_id].add(sid)
                 
                 await self.sio.save_session(sid, {'user_id': user_id})
                 await self.sio.emit('auth_success', {'user_id': user_id}, to=sid)
-                print(f"✅ Пользователь {user_id} успешно прошел аутентификацию")
+                print(f"Пользователь {user_id} успешно прошел аутентификацию")
                 
-                # Отправляем уведомления о новых обменах
                 await self.send_pending_exchanges(user_id, sid)
                 return True
                 
             except Exception as e:
                 error_msg = str(e)
-                print(f"❌ Ошибка аутентификации: {error_msg}")
+                print(f"Ошибка аутентификации: {error_msg}")
                 await self.sio.emit('auth_error', {'error': error_msg}, to=sid)
                 return False
 
@@ -142,10 +135,10 @@ class SocketManager:
                     if user_id in self.online_users:
                         for session_id in self.online_users[user_id]:
                             await self.sio.emit('new_exchanges', {'exchanges': notifications}, to=session_id)
-                print(f"📨 Отправлено {len(notifications)} уведомлений пользователю {user_id}")
+                print(f"Отправлено {len(notifications)} уведомлений пользователю {user_id}")
                 
         except Exception as e:
-            print(f"❌ Ошибка отправки уведомлений: {str(e)}")
+            print(f"Ошибка отправки уведомлений: {str(e)}")
         finally:
             db.close()
 
@@ -156,9 +149,9 @@ class SocketManager:
             exchange = db.query(Exchange).get(exchange_id)
             if exchange:
                 await self.send_pending_exchanges(str(exchange.owner_id))
-                print(f"🔔 Уведомление о новом обмене ID {exchange_id} отправлено владельцу {exchange.owner_id}")
+                print(f"Уведомление о новом обмене ID {exchange_id} отправлено владельцу {exchange.owner_id}")
         except Exception as e:
-            print(f"❌ Ошибка уведомления о новом обмене: {str(e)}")
+            print(f"Ошибка уведомления о новом обмене: {str(e)}")
         finally:
             db.close()
 
@@ -176,8 +169,8 @@ class SocketManager:
                             'book_title': exchange.book.title if exchange.book else 'Неизвестная книга',
                             'status': status
                         }, to=session_id)
-                    print(f"🔔 Уведомление о статусе обмена ID {exchange_id} отправлено запрашивающему {exchange.requester_id}")
+                    print(f"Уведомление о статусе обмена ID {exchange_id} отправлено запрашивающему {exchange.requester_id}")
         except Exception as e:
-            print(f"❌ Ошибка уведомления о статусе обмена: {str(e)}")
+            print(f"Ошибка уведомления о статусе обмена: {str(e)}")
         finally:
             db.close()

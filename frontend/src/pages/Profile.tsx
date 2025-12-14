@@ -152,11 +152,25 @@ const Profile: React.FC = () => {
                 <div key={exchange.id} className="book-item" style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '0 0 100px' }}>
-                      {exchange.book?.cover ? (
+                      {exchange.book?.cover_url ? (
+                        <img
+                          src={exchange.book.cover_url}
+                          alt={exchange.book.title}
+                          className="book-cover-vertical"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                          }}
+                        />
+                      ) : exchange.book?.cover ? (
                         <img
                           src={`http://localhost:8000/uploads/covers/${exchange.book.cover}`}
                           alt={exchange.book.title}
                           className="book-cover-vertical"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                          }}
                         />
                       ) : (
                         <div className="book-cover-placeholder-vertical">📚</div>
@@ -213,11 +227,25 @@ const Profile: React.FC = () => {
                 <div key={exchange.id} className="book-item" style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '0 0 100px' }}>
-                      {exchange.book?.cover ? (
+                      {exchange.book?.cover_url ? (
+                        <img
+                          src={exchange.book.cover_url}
+                          alt={exchange.book.title}
+                          className="book-cover-vertical"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                          }}
+                        />
+                      ) : exchange.book?.cover ? (
                         <img
                           src={`http://localhost:8000/uploads/covers/${exchange.book.cover}`}
                           alt={exchange.book.title}
                           className="book-cover-vertical"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                          }}
                         />
                       ) : (
                         <div className="book-cover-placeholder-vertical">📚</div>
@@ -310,11 +338,25 @@ const Profile: React.FC = () => {
           <div className="books-grid">
             {myBooks.map(book => (
               <div key={book.id} className="book-card">
-                {book.cover ? (
+                {book.cover_url ? (
+                  <img 
+                    src={book.cover_url} 
+                    alt={book.title}
+                    className="book-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                    }}
+                  />
+                ) : book.cover ? (
                   <img 
                     src={`http://localhost:8000/uploads/covers/${book.cover}`} 
                     alt={book.title}
                     className="book-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                    }}
                   />
                 ) : (
                   <div 

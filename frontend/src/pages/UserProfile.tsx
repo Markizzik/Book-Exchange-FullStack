@@ -167,11 +167,15 @@ const UserProfile: React.FC = () => {
           <div className="books-grid">
             {userBooks.map(book => (
               <div key={book.id} className="book-card">
-                {book.cover ? (
+                {book.cover_url ? (
                   <img 
-                    src={`http://localhost:8000/uploads/covers/${book.cover}`} 
+                    src={book.cover_url}
                     alt={book.title}
                     className="book-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                    }}
                   />
                 ) : (
                   <div 

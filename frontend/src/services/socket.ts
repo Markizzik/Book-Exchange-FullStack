@@ -35,7 +35,6 @@ export const connectSocket = async (token: string) => {
 
   if (!socket.connected) {
     try {
-      // Правильная передача токена
       socket.io.opts.query = { token };
       
       return new Promise<void>((resolve, reject) => {
