@@ -11,8 +11,13 @@ import EditBook from './pages/EditBook';
 import UserProfile from './pages/UserProfile';
 import BookDetail from './pages/BookDetail';
 import Notifications from './components/Notifications';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminPanel from './pages/AdminPanel';
+import Unauthorized from './pages/Unauthorized';
+import AdminBooks from './pages/AdminBooks';
 import './App.css';
 import './index.css';
+import { UserRole, Permission } from './types';
 import { createGlobalStyle } from 'styled-components';
 
 const GlobalStyle = createGlobalStyle`
@@ -38,11 +43,67 @@ function App() {
               <Route path="/" element={<Catalog />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/add-book" element={<AddBook />} />
-              <Route path="/edit-book/:id" element={<EditBook />} />
               <Route path="/user/:userId" element={<UserProfile />} />
               <Route path="/book/:id" element={<BookDetail />} />
+
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute requiredRole={UserRole.USER}>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-book"
+                element={
+                  <ProtectedRoute requiredPermissions={[Permission.BOOKS_CREATE]}>
+                    <AddBook />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-book/:id"
+                element={
+                  <ProtectedRoute requiredPermissions={[Permission.BOOKS_EDIT]}>
+                    <EditBook />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute requiredRole={UserRole.ADMIN}>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute 
+                    requiredRole={UserRole.ADMIN}
+                    requiredPermissions={[Permission.ROLES_MANAGE]}
+                  >
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/books"
+                element={
+                  <ProtectedRoute 
+                    requiredRole={UserRole.ADMIN}
+                    requiredPermissions={[Permission.BOOKS_EDIT_ANY]}
+                  >
+                    <AdminBooks />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="/unauthorized" element={<Unauthorized />} />
+              
             </Routes>
           </main>
           <Notifications />

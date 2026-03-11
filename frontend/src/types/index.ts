@@ -1,3 +1,32 @@
+export enum UserRole {
+  GUEST = 'guest',
+  USER = 'user',
+  ADMIN = 'admin'
+}
+
+export enum Permission {
+  BOOKS_VIEW = 'books:view',
+  BOOKS_CREATE = 'books:create',
+  BOOKS_EDIT = 'books:edit',
+  BOOKS_DELETE = 'books:delete',
+  BOOKS_EDIT_ANY = 'books:edit:any',
+  BOOKS_DELETE_ANY = 'books:delete:any',
+  EXCHANGES_VIEW = 'exchanges:view',
+  EXCHANGES_CREATE = 'exchanges:create',
+  EXCHANGES_ACCEPT = 'exchanges:accept',
+  EXCHANGES_REJECT = 'exchanges:reject',
+  EXCHANGES_CANCEL = 'exchanges:cancel',
+  EXCHANGES_MANAGE_ANY = 'exchanges:manage:any',
+  USERS_VIEW = 'users:view',
+  USERS_EDIT = 'users:edit',
+  USERS_EDIT_ANY = 'users:edit:any',
+  USERS_DELETE = 'users:delete',
+  USERS_DELETE_ANY = 'users:delete:any',
+  ROLES_VIEW = 'roles:view',
+  ROLES_MANAGE = 'roles:manage',
+  ADMIN_ACCESS = 'admin:access'
+}
+
 export interface User {
   id: number;
   email: string;
@@ -5,6 +34,8 @@ export interface User {
   full_name: string | null;
   city: string | null;
   about: string | null;
+  role: UserRole;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -12,6 +43,7 @@ export interface UserBasic {
   id: number;
   username: string;
   city: string | null;
+  role: UserRole;
 }
 
 export interface Book {
@@ -24,7 +56,7 @@ export interface Book {
   cover: string | null;
   cover_url?: string | null;
   owner_id: number;
-  owner: UserBasic; // Добавляем владельца
+  owner: UserBasic;
   status: string;
   created_at: string;
   updated_at: string | null;

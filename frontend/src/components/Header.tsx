@@ -2,6 +2,8 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
+import Can from './Can';
+import { Permission, UserRole } from '../types';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -26,7 +28,14 @@ const Header: React.FC = () => {
               <>
                 <span className="user-greeting">Привет, {user.username}!</span>
                 <Link to="/profile" className="nav-link">Мой профиль</Link>
-                <Link to="/add-book" className="nav-link">Добавить книгу</Link>
+                <Can permissions={[Permission.BOOKS_CREATE]}>
+                  <Link to="/add-book" className="nav-link">Добавить книгу</Link>
+                </Can>
+                <Can permissions={[Permission.ADMIN_ACCESS]}>
+                  <Link to="/admin" className="nav-link" style={{ color: '#dc2626' }}>
+                    Админ-панель
+                  </Link>
+                </Can>
                 <NotificationBell />
                 <button
                   onClick={handleLogout}

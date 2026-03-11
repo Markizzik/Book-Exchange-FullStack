@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Book, User, Exchange, ExchangeResponse } from '../types';
+import { Book, User, UserRole, Exchange, ExchangeResponse } from '../types';
 import { booksAPI, exchangesAPI } from '../services/api';
 import { Link } from 'react-router-dom';
 import ExchangeStatus from '../components/ExchangeStatus';
+import Can from '../components/Can';
+import { Permission } from '../types';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -336,100 +338,118 @@ const Profile: React.FC = () => {
           </div>
         ) : (
           <div className="books-grid">
-            {myBooks.map(book => (
-              <div key={book.id} className="book-card">
-                {book.cover_url ? (
-                  <img 
-                    src={book.cover_url} 
-                    alt={book.title}
-                    className="book-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                    }}
-                  />
-                ) : book.cover ? (
-                  <img 
-                    src={`http://localhost:8000/uploads/covers/${book.cover}`} 
-                    alt={book.title}
-                    className="book-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                    }}
-                  />
-                ) : (
-                  <div 
-                    className="book-cover" 
-                    style={{ 
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontSize: '3rem'
-                    }}
-                  >
-                    📚
-                  </div>
-                )}
-                
-                <div className="book-content">
-                  <h3 className="book-title">{book.title}</h3>
-                  <p className="book-author">Автор: {book.author}</p>
-                  
-                  <div className="book-meta">
-                    {book.genre && (
-                      <span className="book-tag">{book.genre}</span>
-                    )}
-                    {book.condition && (
-                      <span className="book-tag">
-                        {book.condition === 'excellent' && 'Отличное'}
-                        {book.condition === 'good' && 'Хорошее'}
-                        {book.condition === 'satisfactory' && 'Удовлетворительное'}
-                      </span>
-                    )}
-                    <span className="book-tag" style={{ 
-                      backgroundColor: book.status === 'available' ? '#d1fae5' : '#fef3c7',
-                      color: book.status === 'available' ? '#065f46' : '#92400e'
-                    }}>
-                      {book.status === 'available' ? 'Доступна' : 'Обменена'}
-                    </span>
-                  </div>
-                  
-                  {book.description && (
-                    <p style={{ 
-                      color: 'var(--text-secondary)', 
-                      fontSize: '0.875rem',
-                      lineHeight: '1.5',
-                      marginBottom: '1rem'
-                    }}>
-                      {book.description.length > 100 
-                        ? `${book.description.substring(0, 100)}...` 
-                        : book.description
-                      }
-                    </p>
+            {myBooks.map(book => {
+              const isAdmin = user?.role === UserRole.ADMIN;
+              const isOwner = book.owner_id === user?.id;
+              const canManage = isAdmin || isOwner;
+              return (
+                <div key={book.id} className="book-card">
+                  {book.cover_url ? (
+                    <img 
+                      src={book.cover_url} 
+                      alt={book.title}
+                      className="book-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                      }}
+                    />
+                  ) : book.cover ? (
+                    <img 
+                      src={`http://localhost:8000/uploads/covers/${book.cover}`} 
+                      alt={book.title}
+                      className="book-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
+                      }}
+                    />
+                  ) : (
+                    <div 
+                      className="book-cover" 
+                      style={{ 
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '3rem'
+                      }}
+                    >
+                      📚
+                    </div>
                   )}
                   
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <Link 
-                      to={`/edit-book/${book.id}`} 
-                      className="btn btn-secondary"
-                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
-                    >
-                      Редактировать
-                    </Link>
-                    <button 
-                      onClick={() => handleDeleteBook(book.id)}
-                      className="btn btn-danger"
-                      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
-                    >
-                      Удалить
-                    </button>
+                  <div className="book-content">
+                    <h3 className="book-title">{book.title}</h3>
+                    <p className="book-author">Автор: {book.author}</p>
+                    
+                    {!isOwner && (
+                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                        Владелец: {book.owner.username}
+                      </p>
+                    )}
+
+                    <div className="book-meta">
+                      {book.genre && (
+                        <span className="book-tag">{book.genre}</span>
+                      )}
+                      {book.condition && (
+                        <span className="book-tag">
+                          {book.condition === 'excellent' && 'Отличное'}
+                          {book.condition === 'good' && 'Хорошее'}
+                          {book.condition === 'satisfactory' && 'Удовлетворительное'}
+                        </span>
+                      )}
+                      <span className="book-tag" style={{ 
+                        backgroundColor: book.status === 'available' ? '#d1fae5' : '#fef3c7',
+                        color: book.status === 'available' ? '#065f46' : '#92400e'
+                      }}>
+                        {book.status === 'available' ? 'Доступна' : 'Обменена'}
+                      </span>
+                    </div>
+                    
+                    {book.description && (
+                      <p style={{ 
+                        color: 'var(--text-secondary)', 
+                        fontSize: '0.875rem',
+                        lineHeight: '1.5',
+                        marginBottom: '1rem'
+                      }}>
+                        {book.description.length > 100 
+                          ? `${book.description.substring(0, 100)}...` 
+                          : book.description
+                        }
+                      </p>
+                    )}
+                    
+                    {canManage && (
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <Can permissions={[Permission.BOOKS_EDIT]}>
+                          <Link 
+                            to={`/edit-book/${book.id}`} 
+                            className="btn btn-secondary"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
+                          >
+                            Редактировать
+                          </Link>
+                        </Can>
+                        
+                        <Can permissions={[Permission.BOOKS_DELETE]}>
+                          <button 
+                            onClick={() => handleDeleteBook(book.id)}
+                            className="btn btn-danger"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
+                          >
+                            Удалить
+                          </button>
+                        </Can>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

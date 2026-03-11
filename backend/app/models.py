@@ -1,7 +1,13 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+import enum
 from .database import Base
+
+class UserRole(str, enum.Enum):
+    GUEST = "guest"
+    USER = "user"
+    ADMIN = "admin"
 
 class User(Base):
     __tablename__ = "users"
@@ -12,8 +18,13 @@ class User(Base):
     full_name = Column(String(200))
     city = Column(String(100))
     about = Column(Text)
+    role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     books = relationship("Book", back_populates="owner")
+    exchanges_requested = relationship("Exchange", foreign_keys="Exchange.requester_id", back_populates="requester")
+    exchanges_received = relationship("Exchange", foreign_keys="Exchange.owner_id", back_populates="owner")
 
 class Book(Base):
     __tablename__ = "books"

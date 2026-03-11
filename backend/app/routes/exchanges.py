@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from ..database import get_db
-from ..models import Exchange, Book, User
+from ..models import Exchange, Book, User, UserRole
 from ..schemas import ExchangeResponse, ExchangeCreate
 from ..security import get_current_user
 from ..dependencies import get_socket_manager
 from fastapi import Request
+from ..permissions import has_permission, Permission
 
 router = APIRouter(prefix="/exchanges", tags=["exchanges"])
 
@@ -19,27 +20,31 @@ def create_exchange(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    socket_manager=Depends(get_socket_manager)  # Получаем socket_manager через dependency injection
+    socket_manager=Depends(get_socket_manager)
 ):
-    # Проверяем, что книга существует
+
+    if not has_permission(current_user, Permission.EXCHANGES_CREATE):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для создания обмена"
+        )
+    
+
     book = db.query(Book).filter(Book.id == exchange.book_id).first()
     if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail="Книга не найдена")
     
-    # Проверяем, что пользователь не пытается обменять свою же книгу
     if book.owner_id == current_user.id:
-        raise HTTPException(status_code=400, detail="You cannot exchange your own book")
+        raise HTTPException(status_code=400, detail="Вы не можете обменять свою же книгу")
     
-    # Проверяем, нет ли уже активного предложения обмена
     existing_exchange = db.query(Exchange).filter(
         Exchange.book_id == exchange.book_id,
         Exchange.status.in_(["pending", "accepted"])
     ).first()
     
     if existing_exchange:
-        raise HTTPException(status_code=400, detail="There is already an active exchange proposal for this book")
+        raise HTTPException(status_code=400, detail="Уже есть активное предложение обмена для этой книги")
     
-    # Создаем новое предложение обмена
     db_exchange = Exchange(
         book_id=exchange.book_id,
         requester_id=current_user.id,
@@ -57,7 +62,6 @@ def get_my_requests(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Получаем все предложения обмена, где текущий пользователь - запросивший
     exchanges = db.query(Exchange).filter(Exchange.requester_id == current_user.id).all()
     return exchanges
 
@@ -66,34 +70,38 @@ def get_my_offers(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Получаем все предложения обмена, где текущий пользователь - владелец книги
     exchanges = db.query(Exchange).filter(Exchange.owner_id == current_user.id).all()
     return exchanges
 
 @router.put("/{exchange_id}/accept", response_model=ExchangeResponse)
 def accept_exchange(
     exchange_id: int,
-    background_tasks: BackgroundTasks,  # Добавьте параметр background_tasks
+    background_tasks: BackgroundTasks,  
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     socket_manager = Depends(get_socket_manager)
 ):
+    if not has_permission(current_user, Permission.EXCHANGES_ACCEPT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для принятия обмена"
+        )
+    
     exchange = db.query(Exchange).filter(Exchange.id == exchange_id).first()
     if not exchange:
-        raise HTTPException(status_code=404, detail="Exchange not found")
+        raise HTTPException(status_code=404, detail="Обмен не найден")
     
-    # Проверяем, что текущий пользователь - владелец книги
-    if exchange.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to accept this exchange")
+    if exchange.owner_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для принятия этого обмена"
+        )
     
-    # Проверяем, что обмен еще не обработан
     if exchange.status != "pending":
-        raise HTTPException(status_code=400, detail="This exchange has already been processed")
+        raise HTTPException(status_code=400, detail="Этот обмен уже был обработан")
     
-    # Принимаем обмен
     exchange.status = "accepted"
     
-    # Обновляем статус книги
     book = db.query(Book).filter(Book.id == exchange.book_id).first()
     if book:
         book.status = "exchanged"
@@ -106,24 +114,31 @@ def accept_exchange(
 @router.put("/{exchange_id}/reject", response_model=ExchangeResponse)
 def reject_exchange(
     exchange_id: int,
-    background_tasks: BackgroundTasks,  # Добавьте параметр background_tasks
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     socket_manager = Depends(get_socket_manager)
 ):
+    
+    if not has_permission(current_user, Permission.EXCHANGES_REJECT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для отклонения обмена"
+        )
+    
     exchange = db.query(Exchange).filter(Exchange.id == exchange_id).first()
     if not exchange:
-        raise HTTPException(status_code=404, detail="Exchange not found")
+        raise HTTPException(status_code=404, detail="Обмен не найден")
     
-    # Проверяем, что текущий пользователь - владелец книги
-    if exchange.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to reject this exchange")
+    if exchange.owner_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для отклонения этого обмена"
+        )
     
-    # Проверяем, что обмен еще не обработан
     if exchange.status != "pending":
-        raise HTTPException(status_code=400, detail="This exchange has already been processed")
+        raise HTTPException(status_code=400, detail="Этот обмен уже был обработан")
     
-    # Отклоняем обмен
     exchange.status = "rejected"
     db.commit()
     db.refresh(exchange)
@@ -136,19 +151,26 @@ def cancel_exchange(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    
+    if not has_permission(current_user, Permission.EXCHANGES_CANCEL):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для отмены обмена"
+        )
+
     exchange = db.query(Exchange).filter(Exchange.id == exchange_id).first()
     if not exchange:
-        raise HTTPException(status_code=404, detail="Exchange not found")
+        raise HTTPException(status_code=404, detail="Обмен не найден")
     
-    # Проверяем, что текущий пользователь - запросивший обмен
-    if exchange.requester_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to cancel this exchange")
+    if exchange.requester_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для отмены этого обмена"
+        )
     
-    # Проверяем, что обмен еще не обработан
     if exchange.status != "pending":
-        raise HTTPException(status_code=400, detail="This exchange has already been processed")
+        raise HTTPException(status_code=400, detail="Этот обмен уже был обработан")
     
-    # Удаляем обмен
     db.delete(exchange)
     db.commit()
-    return {"message": "Exchange cancelled successfully"}
+    return {"message": "Обмен отменён успешно"}
