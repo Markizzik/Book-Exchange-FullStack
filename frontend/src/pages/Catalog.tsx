@@ -10,14 +10,15 @@ const Catalog: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // ← Отдельное состояние для запроса к API
   const [selectedGenre, setSelectedGenre] = useState('');
   const [selectedCondition, setSelectedCondition] = useState('');
   
-  // Состояния для пагинации
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
+  // ✅ Загрузка книг — только при изменении searchQuery (после Enter)
   useEffect(() => {
     const fetchBooks = async () => {
       setLoading(true);
@@ -27,7 +28,7 @@ const Catalog: React.FC = () => {
           limit: 10
         };
         
-        if (search) params.search = search;
+        if (searchQuery) params.search = searchQuery;  // ← Используем searchQuery
         if (selectedGenre) params.genre = selectedGenre;
         if (selectedCondition) params.condition = selectedCondition;
         
@@ -44,26 +45,49 @@ const Catalog: React.FC = () => {
       }
     };
 
-    // Добавляем задержку для поиска чтобы не делать запрос при каждом нажатии клавиши
-    const timeoutId = setTimeout(fetchBooks, 300);
-    return () => clearTimeout(timeoutId);
-  }, [search, selectedGenre, selectedCondition, currentPage]);
+    fetchBooks();
+  }, [searchQuery, selectedGenre, selectedCondition, currentPage]);  // ← searchQuery вместо search
 
-  // Сбрасываем на первую страницу при изменении фильтров
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedGenre, selectedCondition]);
 
   const clearFilters = () => {
     setSearch('');
+    setSearchQuery('');  // ← Сбрасываем и searchQuery
     setSelectedGenre('');
     setSelectedCondition('');
     setCurrentPage(1);
   };
 
+  // ✅ Обработчик нажатия Enter
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setSearchQuery(search);  // ← Копируем из search в searchQuery
+      setCurrentPage(1);       // ← Сброс на первую страницу
+    }
+  };
+
+  // ✅ Просто обновляем текст в инпуте (без триггера поиска)
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+  };
+
+  // ✅ Поиск по клику на кнопку (для мобильных и удобства)
+  const handleSearchSubmit = () => {
+    setSearchQuery(search);
+    setCurrentPage(1);
+  };
+
+  const handleGenreChange = (value: string) => {
+    setSelectedGenre(value);
+    if (currentPage !== 1) setCurrentPage(1);
+  };
+
+  const handleConditionChange = (value: string) => {
+    setSelectedCondition(value);
+    if (currentPage !== 1) setCurrentPage(1);
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Прокручиваем страницу вверх при смене страницы
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -87,14 +111,16 @@ const Catalog: React.FC = () => {
         <div>
           <Filters
             search={search}
-            onSearchChange={setSearch}
+            onSearchChange={handleSearchChange}
+            onSearchKeyDown={handleSearchKeyDown}      // ← Передаем обработчик Enter
+            onSearchSubmit={handleSearchSubmit}        // ← Передаем обработчик кнопки
             selectedGenre={selectedGenre}
-            onGenreChange={setSelectedGenre}
+            onGenreChange={handleGenreChange}
             selectedCondition={selectedCondition}
-            onConditionChange={setSelectedCondition}
+            onConditionChange={handleConditionChange}
           />
           
-          {(search || selectedGenre || selectedCondition) && (
+          {(searchQuery || selectedGenre || selectedCondition) && (
             <div className="card" style={{ marginTop: '1rem' }}>
               <button 
                 onClick={clearFilters}
@@ -119,9 +145,9 @@ const Catalog: React.FC = () => {
               <h2 style={{ margin: 0 }}>
                 Найдено книг: {totalCount}
               </h2>
-              {(search || selectedGenre || selectedCondition) && (
+              {(searchQuery || selectedGenre || selectedCondition) && (
                 <div style={{ color: 'var(--text-secondary)' }}>
-                  {search && `Поиск: "${search}"`}
+                  {searchQuery && `Поиск: "${searchQuery}"`}
                   {selectedGenre && ` • Жанр: ${selectedGenre}`}
                   {selectedCondition && ` • Состояние: ${translateCondition(selectedCondition)}`}
                 </div>
@@ -136,10 +162,10 @@ const Catalog: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="book-list">
+                <ul className="book-list">
                   {books.map(book => (
                     <Link to={`/book/${book.id}`} style={{ textDecoration: 'none', color: 'inherit' }} key={book.id}>
-                      <div className="book-item">
+                      <article className="book-item">
                         {book.cover_url ? (
                           <img  
                             src={book.cover_url}  
@@ -205,12 +231,11 @@ const Catalog: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </article>
                     </Link>
                   ))}
-                </div>
+                </ul>
 
-                {/* Пагинация */}
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}

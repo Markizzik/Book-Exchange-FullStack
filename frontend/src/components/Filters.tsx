@@ -3,6 +3,8 @@ import React from 'react';
 interface FiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
+  onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onSearchSubmit: () => void;
   selectedGenre: string;
   onGenreChange: (value: string) => void;
   selectedCondition: string;
@@ -12,6 +14,8 @@ interface FiltersProps {
 const Filters: React.FC<FiltersProps> = ({
   search,
   onSearchChange,
+  onSearchKeyDown,
+  onSearchSubmit,
   selectedGenre,
   onGenreChange,
   selectedCondition,
@@ -26,19 +30,29 @@ const Filters: React.FC<FiltersProps> = ({
     <div className="filters-card">
       <h3>Фильтры поиска</h3>
       
-      {/* Поиск по названию и автору */}
       <div className="form-group">
         <label className="form-label">Поиск по книгам</label>
-        <input
-          type="text"
-          className="form-input"
-          placeholder="Название, автор или описание..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Название, автор или описание..."
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onKeyDown={onSearchKeyDown}
+            style={{ flex: 1 }}
+          />
+          <button 
+            onClick={onSearchSubmit}
+            className="btn btn-primary"
+            type="button"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            🔍 Найти
+          </button>
+        </div>
       </div>
 
-      {/* Фильтр по жанру */}
       <div className="form-group">
         <label className="form-label">Жанр</label>
         <select
@@ -53,7 +67,6 @@ const Filters: React.FC<FiltersProps> = ({
         </select>
       </div>
 
-      {/* Фильтр по состоянию */}
       <div className="form-group">
         <label className="form-label">Состояние</label>
         <select

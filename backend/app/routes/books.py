@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -8,6 +8,16 @@ import os
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
+import urllib.request
+import urllib.parse
+from ..services.weather import get_city_weather
+import urllib.error
+import json
+import os
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 
 from ..database import get_db
 from ..models import Book, User, UserRole, Exchange
@@ -267,3 +277,24 @@ def get_user_books_admin(
     
     books = db.query(Book).filter(Book.owner_id == user_id).all()
     return books
+
+@router.get("/weather/city")
+async def get_weather_by_city(city: str = Query(..., min_length=1, max_length=100)):
+    """
+    Получить погоду для указанного города.
+    Публичный эндпоинт для лендинга.
+    """
+    # Вызываем синхронную функцию в отдельном потоке, чтобы не блокировать сервер
+    loop = asyncio.get_event_loop()
+    weather_data = await loop.run_in_executor(
+        None,  # Используем дефолтный пул потоков
+        lambda: get_city_weather(city)
+    )
+    
+    if not weather_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Не удалось получить погоду для города '{city}'"
+        )
+    
+    return weather_data

@@ -4,6 +4,7 @@ import { Book, Exchange, User } from '../types';
 import { booksAPI, exchangesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { translateCondition, translateGenre } from '../utils/translations';
+import { SEO } from '../utils/SEO';
 
 const BookDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -107,8 +108,33 @@ const BookDetail: React.FC = () => {
 
   return (
     <div className="container">
+      {/* SEO Component with JSON-LD */}
+      <SEO
+        title={`${book.title} — ${book.author}`}
+        description={book.description || `Обмен книги ${book.title} автора ${book.author}`}
+        image={book.cover_url || undefined}
+        type="book"
+        jsonLd={{
+          "@context": "https://schema.org/",
+          "@type": "Book",
+          "name": book.title,
+          "author": {
+            "@type": "Person",
+            "name": book.author
+          },
+          "description": book.description,
+          "image": book.cover_url,
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "RUB",
+            "availability": book.status === 'available' ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+          }
+        }}
+      />
+
       <div className="hero">
-        <h1>Детальная информация о книге</h1>
+        <h2>Детальная информация о книге</h2>
         <p>Узнайте больше о книге и возможности обмена</p>
       </div>
       
@@ -149,23 +175,23 @@ const BookDetail: React.FC = () => {
           </div>
           
           <div style={{ flex: 1, minWidth: '300px' }}>
-            <h2 style={{ fontSize: '2.5rem', margin: 0, color: 'var(--text-primary)' }}>
+            <h1 style={{ fontSize: '2.5rem', margin: 0, color: 'var(--text-primary)' }}>
               {book.title}
-            </h2>
+            </h1>
             <p style={{ fontSize: '1.5rem', color: 'var(--text-secondary)', margin: '0.5rem 0' }}>
               Автор: <strong>{book.author}</strong>
             </p>
             
             <div style={{ display: 'flex', gap: '1rem', margin: '1.5rem 0', flexWrap: 'wrap' }}>
               {book.genre && (
-                <span className="book-tag" style={{ padding: '0.5rem 1rem' }}>
+                <dl className="book-tag" style={{ padding: '0.5rem 1rem' }}>
                   {translateGenre(book.genre)}
-                </span>
+                </dl>
               )}
               {book.condition && (
-                <span className="book-tag" style={{ padding: '0.5rem 1rem' }}>
+                <dl className="book-tag" style={{ padding: '0.5rem 1rem' }}>
                   {translateCondition(book.condition)}
-                </span>
+                </dl>
               )}
               <span className="book-tag" style={{ 
                 padding: '0.5rem 1rem',
@@ -323,6 +349,8 @@ const BookDetail: React.FC = () => {
         </div>
       </div>
       
+      {/*<Recommendations bookId={book.id} />*/}
+
       <div style={{ marginTop: '2rem', textAlign: 'center' }}>
         <button onClick={() => navigate('/')} className="btn btn-secondary">
           Вернуться в каталог
