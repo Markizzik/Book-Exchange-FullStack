@@ -16,11 +16,12 @@ interface AuthContextType {
     city?: string;
     about?: string;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   isAdmin: boolean;
   isUser: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,16 +32,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        loadUserPermissions(token);
+    const initAuth = async () => {
+      try {
+        const response = await authAPI.getMe();
+        setUser(response.data);
+        const permsResponse = await api.get<string[]>('/auth/me/permissions');
+        setPermissions(permsResponse.data);
+      } catch (error) {
+        setUser(null);
+        setPermissions([]);
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const loadUserPermissions = async (token: string) => {
@@ -59,12 +64,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     const response = await authAPI.login(username, password);
-    const { access_token, user: userData } = response.data;
-    localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    api.defaults.headers.Authorization = `Bearer ${access_token}`;
-    setUser(userData);
-    await loadUserPermissions(access_token);
+    setUser(response.data);
+    const permsResponse = await api.get<string[]>('/auth/me/permissions');
+    setPermissions(permsResponse.data);
   };
 
   const register = async (registerData: {
@@ -76,19 +78,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     about?: string;
   }) => {
     const response = await authAPI.register(registerData);
-    const { access_token, user: userFromResponse } = response.data;
-    localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userFromResponse));
-    api.defaults.headers.Authorization = `Bearer ${access_token}`;
-    setUser(userFromResponse);
-    await loadUserPermissions(access_token);
+    setUser(response.data);
+    const permsResponse = await api.get<string[]>('/auth/me/permissions');
+    setPermissions(permsResponse.data);
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Ошибка при выходе:', error);
+    }
     setUser(null);
     setPermissions([]);
+  };
+
+  const refreshUser = async () => {
+    try {
+      const response = await authAPI.getMe();
+      setUser(response.data);
+      const permsResponse = await api.get<string[]>('/auth/me/permissions');
+      setPermissions(permsResponse.data);
+    } catch (error) {
+      setUser(null);
+      setPermissions([]);
+    }
   };
 
    const checkPermission = (permission: string): boolean => {
@@ -107,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     hasPermission: checkPermission,
     isAdmin: user?.role === UserRole.ADMIN,
     isUser: user?.role === UserRole.USER || user?.role === UserRole.ADMIN,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

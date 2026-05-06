@@ -1,8 +1,7 @@
 import io, { Socket } from 'socket.io-client';
-import { useAuth } from '../context/AuthContext';
 
 let socket: Socket | null = null;
-const SOCKET_URL = 'http://localhost:8000';
+const SOCKET_URL = location.origin;
 
 export const initSocket = () => {
   if (!socket) {
@@ -13,9 +12,11 @@ export const initSocket = () => {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      extraHeaders: {
+      },
+      withCredentials: true,
     });
     
-    // Обработчики ошибок и событий
     socket.on('connect_error', (error) => {
       console.error('Ошибка подключения к вебсокетам:', error);
     });
@@ -30,12 +31,14 @@ export const initSocket = () => {
   return socket;
 };
 
-export const connectSocket = async (token: string) => {
+export const connectSocket = async (token?: string | null) => {
   const socket = initSocket();
 
   if (!socket.connected) {
     try {
-      socket.io.opts.query = { token };
+      if (token) {
+        socket.io.opts.query = { token };
+      }
       
       return new Promise<void>((resolve, reject) => {
         socket.on('connect_error', (error) => {

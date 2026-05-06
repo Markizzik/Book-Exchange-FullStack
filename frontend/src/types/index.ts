@@ -86,3 +86,6 @@ export interface ExchangeResponse extends Exchange {
   requester: User;
   owner: User;
 }
+
+export interface UserResponse extends User {
+}

@@ -38,7 +38,7 @@ const Pagination: React.FC<PaginationProps> = ({
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="pagination">
+    <nav className="pagination">
       <div className="pagination-info">
         Показано {(currentPage - 1) * 10 + 1}-{Math.min(currentPage * 10, totalCount)} из {totalCount} книг
       </div>
@@ -101,7 +101,7 @@ const Pagination: React.FC<PaginationProps> = ({
           Вперед →
         </button>
       </div>
-    </div>
+    </nav>
   );
 };
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body 
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
@@ -10,15 +10,44 @@ import os
 
 from ..database import get_db
 from ..models import User, UserRole
-from ..schemas import UserCreate, UserResponse, Token, UserUpdate, UserUpdateAdmin
-from ..security import get_password_hash, verify_password, create_access_token, get_current_user, get_current_admin_user
+from ..schemas import UserCreate, UserResponse, UserUpdate, UserUpdateAdmin
+from ..security import get_password_hash, verify_password, create_access_token, create_refresh_token, get_current_user, get_current_admin_user, get_current_user_from_refresh, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from ..permissions import require_permission, Permission, get_user_permissions
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SAMESITE = "lax"
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    """Установить httpOnly cookies"""
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/",
+    )
+
+def clear_auth_cookies(response: Response):
+    """Очистить cookies"""
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
+
 @router.post("/register", response_model=UserResponse)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    # Check if user exists
+def register(response: Response, user_data: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -47,19 +76,26 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     access_token = create_access_token(
         data={"sub": db_user.username, "user_id": db_user.id}
     )
+    refresh_token = create_refresh_token(
+        data={"sub": db_user.username, "user_id": db_user.id}
+    )
+    set_auth_cookies(response, access_token, refresh_token)
     return db_user
 
-@router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@router.post("/login", response_model=UserResponse)
+def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    print(f"🔐 Login attempt for user: {form_data.username}")
     user = db.query(User).filter(User.username == form_data.username).first()
     
     if not user or not verify_password(form_data.password, user.password_hash):
+        print(f"❌ Invalid credentials for: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неправильно введено имя пользователя или пароль"
         )
     
     if not user.is_active:
+        print(f"❌ User inactive: {form_data.username}") 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Пользователь деактивирован"
@@ -68,15 +104,45 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = create_access_token(
         data={"sub": user.username, "user_id": user.id, "role": user.role.value}
     )
+    refresh_token = create_refresh_token(
+        data={"sub": user.username, "user_id": user.id, "role": user.role.value}
+    )
+    print(f"🍪 Setting cookies...")  # ← Добавьте это
+    set_auth_cookies(response, access_token, refresh_token)
+    print(f"🍪 Response headers after set: {dict(response.headers)}")  # ← Добавьте это
+    print(f"✅ Login successful for: {user.username}")  # ← Добавьте это
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user
-    }
+    return user
+
+@router.post("/refresh", response_model=UserResponse)
+def refresh_token(response: Response, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_from_refresh)):
+    """Обновить access token используя refresh token"""
+    
+    access_token = create_access_token(
+        data={"sub": current_user.username, "user_id": current_user.id, "role": current_user.role.value}
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": current_user.username, "user_id": current_user.id, "role": current_user.role.value}
+    )
+    
+    set_auth_cookies(response, access_token, refresh_token)
+    
+    return current_user
+
+@router.post("/logout")
+def logout(response: Response):
+    """Выйти из системы (очистить cookies)"""
+    clear_auth_cookies(response)
+    return {"message": "Успешный выход"}
+
+@router.get("/me", response_model=UserResponse)
+def get_current_user_info(request: Request, current_user: User = Depends(get_current_user)):
+    """Получить данные текущего пользователя"""
+    return current_user
 
 @router.get("/profile/{user_id}", response_model=UserResponse)
 def get_user_profile(
+    request: Request,
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -88,6 +154,7 @@ def get_user_profile(
 
 @router.get("/profile/{user_id}/books", response_model=List[BookResponse])
 def get_user_books(
+    request: Request,
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -97,6 +164,7 @@ def get_user_books(
 
 @router.get("/me/permissions", response_model=List[str])
 def get_my_permissions(
+    request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """Получить список разрешений текущего пользователя"""
@@ -105,6 +173,7 @@ def get_my_permissions(
 
 @router.get("/admin/users", response_model=List[UserResponse])
 def get_all_users(
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -116,6 +185,7 @@ def get_all_users(
 
 @router.put("/admin/users/{user_id}", response_model=UserResponse)
 def update_user(
+    request: Request,
     user_id: int,
     user_data: UserUpdateAdmin,
     db: Session = Depends(get_db),
@@ -157,6 +227,7 @@ def update_user(
 
 @router.delete("/admin/users/{user_id}")
 def delete_user(
+    request: Request,
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user)
@@ -186,6 +257,7 @@ def delete_user(
 
 @router.post("/admin/users/{user_id}/role")
 def update_user_role(
+    request: Request,
     user_id: int,
     new_role: UserRole = Body(..., embed=True),
     db: Session = Depends(get_db),

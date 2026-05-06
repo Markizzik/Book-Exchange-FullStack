@@ -1,19 +1,79 @@
 import axios from 'axios';
-import { AuthResponse, Book, User, Exchange, ExchangeResponse } from '../types';
+import { Book, User, Exchange, ExchangeResponse, UserResponse } from '../types';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  console.log(`📡 [API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+  console.log('🍪 Cookies будут отправлены:', config.withCredentials);
+  console.log('📦 Headers:', config.headers);
   return config;
 });
+
+let isRefreshing = false;
+type QueueItem = {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: any) => void;
+};
+let failedQueue: QueueItem[] = [];
+
+const processQueue = (error: any = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(undefined);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  response => {
+    console.log(`✅ [API] ${response.status} ${response.config.url}`);
+    return response;
+  },
+  async error => {
+    const originalRequest = error.config;
+    console.log(`❌ [API] ${error.response?.status || 'NO_RESPONSE'} ${originalRequest?.url}`);
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        console.log('🔄 Пытаемся обновить токен...');
+        await api.post('/auth/refresh', {});
+        console.log('✅ Токен обновлён, повторяем запрос...');
+        
+        processQueue();
+        return api(originalRequest);
+      } catch (refreshError) {
+        console.error('❌ Не удалось обновить токен:', refreshError);
+        processQueue(refreshError);
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export const authAPI = {
   register: (userData: {
@@ -23,14 +83,23 @@ export const authAPI = {
     full_name?: string;
     city?: string;
     about?: string;
-  }) => api.post<AuthResponse>('/auth/register', userData),
+  }) => api.post<UserResponse>('/auth/register', userData),
 
   login: (username: string, password: string) => {
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('password', password);
-    return api.post<AuthResponse>('/auth/login', formData);
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+    
+    return api.post<UserResponse>('/auth/login', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
   },
+
+  logout: () => api.post('/auth/logout'),
+  
+  getMe: () => api.get<User>('/auth/me'),
 };
 
 export interface PaginatedResponse<T> {

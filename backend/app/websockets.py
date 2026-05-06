@@ -5,15 +5,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from .database import get_db
 from .models import User, Exchange, Book
-from datetime import datetime
+from .security import SECRET_KEY, ALGORITHM
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 import os
 import json
-
-from dotenv import load_dotenv
-load_dotenv()
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 class SocketManager:
     def __init__(self):
@@ -38,11 +34,30 @@ class SocketManager:
             token = None
             
             if 'token=' in query_string:
-                token = query_string.split('token=')[1].split('&')[0]
+                try:
+                    token = query_string.split('token=')[1].split('&')[0]
+                except (IndexError, KeyError):
+                    token = None
+
+            if not token:
+                cookies = environ.get('HTTP_COOKIE', '')
+                for cookie in cookies.split(';'):
+                    cookie = cookie.strip()
+                    if cookie.startswith('access_token='):
+                        token = cookie.split('=', 1)[1]
+                        break
             
             if token:
                 try:
+                    unverified = jwt.get_unverified_claims(token)
+                    if unverified.get('exp', 0) < datetime.now(timezone.utc).timestamp():
+                        await self.sio.emit('auth_error', {'error': 'Токен истёк. Войдите снова.'}, to=sid)
+                        return False
                     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+                    token_type = payload.get('type')
+                    if token_type and token_type != 'access':
+                        await self.sio.emit('auth_error', {'error': 'Неверный тип токена'}, to=sid)
+                        return False
                     user_id = payload.get('user_id')
                     
                     if user_id:
@@ -51,9 +66,14 @@ class SocketManager:
                             self.online_users[user_id_str] = set()
                         self.online_users[user_id_str].add(sid)
                         await self.sio.save_session(sid, {'user_id': user_id_str})
+                        await self.sio.emit('user_online', {'user_id': user_id_str}, to=sid)
                         await self.sio.emit('auth_success', {'user_id': user_id_str}, to=sid)
                         await self.send_pending_exchanges(user_id_str)
                         return True
+                except jwt.ExpiredSignatureError:
+                    await self.sio.emit('auth_error', {'error': 'Токен истёк. Войдите снова.'}, to=sid)
+                except jwt.InvalidTokenError:
+                    await self.sio.emit('auth_error', {'error': 'Неверный токен'}, to=sid)
                 except Exception as e:
                     print(f"Ошибка аутентификации: {str(e)}")
                     await self.sio.emit('auth_error', {'error': str(e)}, to=sid)

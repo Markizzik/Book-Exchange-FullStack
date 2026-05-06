@@ -16,32 +16,22 @@ export const useSocket = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [statusUpdates, setStatusUpdates] = useState<any[]>([]);
   const [onlineStatus, setOnlineStatus] = useState<Record<string, boolean>>({});
+  const [cleanupFunctions, setCleanupFunctions] = useState<(() => void)[]>([]);
 
-  // Эффект для подключения к вебсокетам
   useEffect(() => {
     if (!user || isConnected || isConnecting) return;
 
     console.log('🔄 Попытка подключения к вебсокетам для пользователя', user.id);
     setIsConnecting(true);
+    cleanupFunctions.forEach(fn => fn());
     
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('❌ Токен не найден в localStorage');
-      setIsConnecting(false);
-      return;
-    }
-
-    let cleanupFunctions: (() => void)[] = [];
-    
-    connectSocket(token)
+    connectSocket()
       .then(() => {
         console.log('✅ Успешное подключение к вебсокетам');
         setIsConnected(true);
 
-        // Настраиваем уведомления о предложениях обмена
         const cleanupExchanges = setupExchangeNotifications((exchange) => {
           setNotifications(prev => {
-            // Проверяем, нет ли уже такого уведомления
             if (prev.some(n => n.id === exchange.id)) return prev;
             
             return [...prev, {
@@ -56,16 +46,14 @@ export const useSocket = () => {
           });
         });
 
-        // Настраиваем уведомления об обновлении статуса обмена
         const cleanupStatus = setupExchangeStatusUpdates((update) => {
           const notificationId = `status-${update.exchange_id}-${update.status}`;
           
           setNotifications(prev => {
-            // Проверяем, нет ли уже такого уведомления
             if (prev.some(n => n.id === notificationId)) return prev;
             
             return [...prev, {
-              id: notificationId,  // Уникальный ID для каждого статуса
+              id: notificationId,
               type: 'status_update',
               status: update.status,
               title: update.status === 'accepted' ? 'Обмен принят' : 'Обмен отклонен',
@@ -77,7 +65,6 @@ export const useSocket = () => {
           });
 
           setStatusUpdates(prev => {
-            // Проверяем, нет ли уже такого обновления статуса
             if (prev.some(u => u.exchange_id === update.exchange_id && u.status === update.status)) return prev;
             
             return [...prev, {
@@ -87,7 +74,6 @@ export const useSocket = () => {
           });
         });
 
-        // Настраиваем онлайн-статус пользователей
         const cleanupUserStatus = setupUserStatus(({ user_id, isOnline }: { user_id: string; isOnline: boolean }) => {
           setOnlineStatus(prev => ({
             ...prev,
@@ -95,7 +81,7 @@ export const useSocket = () => {
           }));
         });
 
-        cleanupFunctions = [cleanupExchanges, cleanupStatus, cleanupUserStatus];
+        setCleanupFunctions([cleanupExchanges, cleanupStatus, cleanupUserStatus]);
         setIsConnecting(false);
       })
       .catch(error => {
@@ -104,16 +90,14 @@ export const useSocket = () => {
       });
 
     return () => {
-      // Очищаем все подписки
-      cleanupFunctions.forEach(fn => fn());
+      cleanupFunctions.forEach((fn: () => void) => fn());
       if (isConnected) {
         disconnectSocket();
         setIsConnected(false);
       }
     };
-  }, [user, isConnected, isConnecting]);  // Убрали notifications из зависимостей!
+  }, [user, isConnected, isConnecting]);
 
-  // Обработчик подключения вебсокета
   useEffect(() => {
     const socket = initSocket();
     

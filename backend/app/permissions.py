@@ -120,7 +120,7 @@ def can_edit_book(user: User, book_owner_id: int) -> bool:
     """Проверить, может ли пользователь редактировать книгу"""
     if user.role.value == UserRole.ADMIN:
         return True
-    if user.role.value == UserRole.ADMIN and user.id == book_owner_id:
+    if user.id == book_owner_id and has_permission(user, Permission.BOOKS_EDIT):
         return True
     return False
 
@@ -128,8 +128,7 @@ def can_delete_book(user: User, book_owner_id: int, has_exchanges: bool = False)
     """Проверить, может ли пользователь удалить книгу"""
     if user.role.value == UserRole.ADMIN:
         return True
-    if user.role.value == UserRole.ADMIN and user.id == book_owner_id:
-        # Пользователь не может удалить книгу, если есть активные обмены
+    if user.id == book_owner_id and has_permission(user, Permission.BOOKS_DELETE):
         if has_exchanges:
             return False
         return True

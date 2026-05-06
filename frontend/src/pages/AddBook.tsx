@@ -44,7 +44,18 @@ const AddBook: React.FC = () => {
       await booksAPI.createBook(data);
       navigate('/profile');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Не удалось добавить книгу. Попробуйте снова.');
+      let message = 'Не удалось добавить книгу. Попробуйте снова.';
+      if (err.response?.status === 422 && Array.isArray(err.response.data?.detail)) {
+        message = err.response.data.detail[0]?.msg || message;
+      } else if (err.response?.data?.detail) {
+        message = typeof err.response.data.detail === 'string' 
+          ? err.response.data.detail 
+          : message;
+      } else if (err.message) {
+        message = err.message;
+      }
+      
+      setError(message);
     } finally {
       setLoading(false);
     }
