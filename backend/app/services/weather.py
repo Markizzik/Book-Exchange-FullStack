@@ -2,7 +2,10 @@
 import os
 import urllib.request
 import urllib.error
+<<<<<<< HEAD
 import urllib.parse
+=======
+>>>>>>> 6f5db317a58cb60acde57bc29d67388c95341f71
 import json
 from typing import Optional, Dict, Any
 
@@ -45,4 +48,8 @@ def get_city_weather(city: str) -> Optional[Dict[str, Any]]:
     except (urllib.error.HTTPError, urllib.error.URLError):
         return None  # Город не найден или ошибка сети
     except Exception:
+<<<<<<< HEAD
         return None  # Любая другая ошибка
+=======
+        return None  # Любая другая ошибка
+>>>>>>> 6f5db317a58cb60acde57bc29d67388c95341f71

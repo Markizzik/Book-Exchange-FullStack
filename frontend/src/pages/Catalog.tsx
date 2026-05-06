@@ -166,6 +166,7 @@ const Catalog: React.FC = () => {
               <>
                 <ul className="book-list">
                   {books.map(book => (
+<<<<<<< HEAD
                     <article
                       className="book-item"
                       key={book.id}
@@ -180,6 +181,10 @@ const Catalog: React.FC = () => {
                       }}
                       style={{ cursor: 'pointer' }}
                     >
+=======
+                    <Link to={`/book/${book.id}`} style={{ textDecoration: 'none', color: 'inherit' }} key={book.id}>
+                      <article className="book-item">
+>>>>>>> 6f5db317a58cb60acde57bc29d67388c95341f71
                         {book.cover_url ? (
                           <img  
                             src={book.cover_url}  
@@ -246,7 +251,12 @@ const Catalog: React.FC = () => {
                             </div>
                           </div>
                         </div>
+<<<<<<< HEAD
                     </article>
+=======
+                      </article>
+                    </Link>
+>>>>>>> 6f5db317a58cb60acde57bc29d67388c95341f71
                   ))}
                 </ul>
 
