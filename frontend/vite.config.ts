@@ -2,6 +2,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const devApiTarget = process.env.VITE_DEV_API_TARGET || 'http://localhost:8000';
+const devWsTarget = process.env.VITE_DEV_WS_TARGET || devApiTarget;
+
 export default defineConfig(({ mode }) => ({
   plugins: [react({ fastRefresh: mode !== 'test' })],
   test: {
@@ -31,7 +34,7 @@ export default defineConfig(({ mode }) => ({
     // @ts-ignore - используем расширенные опции http-proxy
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: devApiTarget,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
@@ -50,7 +53,7 @@ export default defineConfig(({ mode }) => ({
         },
       },
       '/ws': {
-        target: 'http://localhost:8000',
+        target: devWsTarget,
         changeOrigin: true,
         ws: true,
         secure: false,

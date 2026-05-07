@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { SITE_URL } from '../config';
 
 interface SEOProps {
   title: string;
@@ -9,8 +10,10 @@ interface SEOProps {
 }
 
 export const SEO = ({ title, description, image, type = 'website', jsonLd }: SEOProps) => {
-  const siteUrl = 'http://localhost:3000'; // В проде заменить на реальный домен
   const currentUrl = window.location.href;
+  const resolvedImage = image
+    ? new URL(image, SITE_URL).toString()
+    : undefined;
 
   return (
     <Helmet>
@@ -23,13 +26,13 @@ export const SEO = ({ title, description, image, type = 'website', jsonLd }: SEO
       <meta property="og:url" content={currentUrl} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
-      {image && <meta property="og:image" content={image} />}
+      {resolvedImage && <meta property="og:image" content={resolvedImage} />}
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:url" content={currentUrl} />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
-      {image && <meta name="twitter:image" content={image} />}
+      {resolvedImage && <meta name="twitter:image" content={resolvedImage} />}
 
       {jsonLd && (
         <script type="application/ld+json">

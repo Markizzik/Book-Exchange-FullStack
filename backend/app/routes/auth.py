@@ -1,23 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Request, Response
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import joinedload
-from datetime import timedelta
-from ..models import Book
-from ..schemas import BookResponse
 from typing import List
-import os
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
+from ..models import Book
 from ..models import User, UserRole
-from ..schemas import UserCreate, UserResponse, UserUpdate, UserUpdateAdmin
-from ..security import get_password_hash, verify_password, create_access_token, create_refresh_token, get_current_user, get_current_admin_user, get_current_user_from_refresh, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
-from ..permissions import require_permission, Permission, get_user_permissions
+from ..permissions import get_user_permissions
+from ..schemas import BookResponse, UserCreate, UserResponse, UserUpdateAdmin
+from ..security import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS, create_access_token, create_refresh_token, get_current_admin_user, get_current_user, get_current_user_from_refresh, get_password_hash, verify_password
+from ..services.storage import attach_cover_urls
+from ..settings import get_settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
-COOKIE_SAMESITE = "lax"
+settings = get_settings()
+COOKIE_SECURE = settings.cookie_secure
+COOKIE_SAMESITE = settings.cookie_samesite
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
     """Установить httpOnly cookies"""
@@ -160,6 +160,7 @@ def get_user_books(
     current_user: User = Depends(get_current_user)
 ):
     books = db.query(Book).filter(Book.owner_id == user_id, Book.status == "available").options(joinedload(Book.owner)).all()
+    attach_cover_urls(books)
     return books
 
 @router.get("/me/permissions", response_model=List[str])

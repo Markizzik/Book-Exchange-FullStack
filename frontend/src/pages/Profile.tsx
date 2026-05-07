@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import ExchangeStatus from '../components/ExchangeStatus';
 import Can from '../components/Can';
 import { Permission } from '../types';
+import { getCoverUrl } from '../utils/imageUtils';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -150,24 +151,17 @@ const Profile: React.FC = () => {
             {exchanges.length === 0 ? (
               <p className="text-center mt-3">Нет активных запросов на обмен</p>
             ) : (
-              exchanges.map(exchange => (
+              exchanges.map(exchange => {
+                const book = exchange.book;
+                const coverUrl = book ? getCoverUrl(book) : null;
+                return (
                 <div key={exchange.id} className="book-item" style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '0 0 100px' }}>
-                      {exchange.book?.cover_url ? (
+                      {coverUrl ? (
                         <img
-                          src={exchange.book.cover_url}
-                          alt={exchange.book.title}
-                          className="book-cover-vertical"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                          }}
-                        />
-                      ) : exchange.book?.cover ? (
-                        <img
-                          src={`http://localhost:8000/uploads/covers/${exchange.book.cover}`}
-                          alt={exchange.book.title}
+                          src={coverUrl}
+                          alt={book?.title || 'Book cover'}
                           className="book-cover-vertical"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -215,7 +209,8 @@ const Profile: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -225,24 +220,17 @@ const Profile: React.FC = () => {
             {offers.length === 0 ? (
               <p className="text-center mt-3">Нет активных предложений для обмена</p>
             ) : (
-              offers.map(exchange => (
+              offers.map(exchange => {
+                const book = exchange.book;
+                const coverUrl = book ? getCoverUrl(book) : null;
+                return (
                 <div key={exchange.id} className="book-item" style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: '0 0 100px' }}>
-                      {exchange.book?.cover_url ? (
+                      {coverUrl ? (
                         <img
-                          src={exchange.book.cover_url}
-                          alt={exchange.book.title}
-                          className="book-cover-vertical"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                          }}
-                        />
-                      ) : exchange.book?.cover ? (
-                        <img
-                          src={`http://localhost:8000/uploads/covers/${exchange.book.cover}`}
-                          alt={exchange.book.title}
+                          src={coverUrl}
+                          alt={book?.title || 'Book cover'}
                           className="book-cover-vertical"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -306,7 +294,8 @@ const Profile: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -342,21 +331,12 @@ const Profile: React.FC = () => {
               const isAdmin = user?.role === UserRole.ADMIN;
               const isOwner = book.owner_id === user?.id;
               const canManage = isAdmin || isOwner;
+              const coverUrl = getCoverUrl(book);
               return (
                 <div key={book.id} className="book-card">
-                  {book.cover_url ? (
+                  {coverUrl ? (
                     <img 
-                      src={book.cover_url} 
-                      alt={book.title}
-                      className="book-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                      }}
-                    />
-                  ) : book.cover ? (
-                    <img 
-                      src={`http://localhost:8000/uploads/covers/${book.cover}`} 
+                      src={coverUrl} 
                       alt={book.title}
                       className="book-cover"
                       onError={(e) => {

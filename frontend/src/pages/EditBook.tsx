@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { booksAPI } from '../services/api';
 import { Book } from '../types';
+import { getFallbackCoverUrl } from '../utils/imageUtils';
 
 const EditBook: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +20,7 @@ const EditBook: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const navigate = useNavigate();
+  const currentCoverUrl = book?.cover_url || getFallbackCoverUrl(currentCover);
 
   useEffect(() => {
     const fetchBook = async () => {
@@ -166,9 +168,9 @@ const EditBook: React.FC = () => {
                     Текущая обложка:
                   </p>
                   {/* Обновленное отображение обложки с поддержкой MinIO */}
-                  {book?.cover_url ? (
+                  {currentCoverUrl ? (
                     <img 
-                      src={book.cover_url} 
+                      src={currentCoverUrl} 
                       alt="Current cover"
                       style={{ 
                         maxWidth: '150px', 
@@ -178,16 +180,6 @@ const EditBook: React.FC = () => {
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex');
-                      }}
-                    />
-                  ) : currentCover ? (
-                    <img 
-                      src={`http://localhost:8000/uploads/covers/${currentCover}`} 
-                      alt="Current cover"
-                      style={{ 
-                        maxWidth: '150px', 
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-color)'
                       }}
                     />
                   ) : (

@@ -1,0 +1,110 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: book_exchange_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d book_exchange_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run backend linter
+        working-directory: backend
+        run: ruff check app tests scripts
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/book_exchange_test
+          SECRET_KEY: ci-secret
+          COOKIE_SECURE: "false"
+          MINIO_ENDPOINT: http://localhost:9000
+          MINIO_PUBLIC_BASE_URL: http://localhost:9000/book-covers
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          MINIO_BUCKET_NAME: book-covers
+          MINIO_SECURE: "false"
+        run: pytest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_SITE_URL: http://localhost:3000
+          VITE_COVER_FALLBACK_BASE_URL: http://localhost:9000/book-covers
+        run: npm run build
+
+      - name: Validate docker-compose
+        run: docker compose config
+
+      - name: Build container images
+        run: docker compose build --pull frontend backend
+
+  deploy:
+    needs: quality
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' && secrets.DEPLOY_PATH != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -eu
+            if [ ! -d "${{ secrets.DEPLOY_PATH }}" ]; then
+              git clone "${{ github.server_url }}/${{ github.repository }}.git" "${{ secrets.DEPLOY_PATH }}"
+            fi
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch --all
+            git checkout "${{ github.ref_name }}"
+            git pull origin "${{ github.ref_name }}"
+            docker compose up -d --build --remove-orphans
+            docker compose ps

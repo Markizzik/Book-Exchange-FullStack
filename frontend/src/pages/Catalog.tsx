@@ -6,6 +6,7 @@ import { booksAPI, PaginatedResponse } from '../services/api';
 import Filters from '../components/Filters';
 import Pagination from '../components/Pagination';
 import { translateCondition, translateGenre } from '../utils/translations';
+import { getCoverUrl } from '../utils/imageUtils';
 
 const Catalog: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -165,8 +166,9 @@ const Catalog: React.FC = () => {
             ) : (
               <>
                 <ul className="book-list">
-                  {books.map(book => (
-<<<<<<< HEAD
+                  {books.map(book => {
+                    const coverUrl = getCoverUrl(book);
+                    return (
                     <article
                       className="book-item"
                       key={book.id}
@@ -181,13 +183,9 @@ const Catalog: React.FC = () => {
                       }}
                       style={{ cursor: 'pointer' }}
                     >
-=======
-                    <Link to={`/book/${book.id}`} style={{ textDecoration: 'none', color: 'inherit' }} key={book.id}>
-                      <article className="book-item">
->>>>>>> 6f5db317a58cb60acde57bc29d67388c95341f71
-                        {book.cover_url ? (
+                        {coverUrl ? (
                           <img  
-                            src={book.cover_url}  
+                            src={coverUrl}  
                             alt={book.title}
                             className="book-cover-vertical"
                             onError={(e) => {
@@ -251,13 +249,9 @@ const Catalog: React.FC = () => {
                             </div>
                           </div>
                         </div>
-<<<<<<< HEAD
                     </article>
-=======
-                      </article>
-                    </Link>
->>>>>>> 6f5db317a58cb60acde57bc29d67388c95341f71
-                  ))}
+                    );
+                  })}
                 </ul>
 
                 <Pagination

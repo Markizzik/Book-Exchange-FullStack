@@ -1,21 +1,19 @@
 import socketio
 from jose import jwt
 from typing import Dict, Set, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
 from .database import get_db
-from .models import User, Exchange, Book
+from .models import Exchange
 from .security import SECRET_KEY, ALGORITHM
 from datetime import datetime, timezone
-from dotenv import load_dotenv
-import os
 import json
+from .settings import get_settings
 
 class SocketManager:
     def __init__(self):
+        settings = get_settings()
         self.sio = socketio.AsyncServer(
             async_mode='asgi',
-            cors_allowed_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+            cors_allowed_origins=settings.allowed_origins,
             allow_upgrades=True,
             ping_timeout=60,
             ping_interval=25,

@@ -26,7 +26,7 @@ class UserResponse(UserBase):
     created_at: datetime
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -49,7 +49,7 @@ class UserBasicResponse(BaseModel):
     role: UserRole
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class BookResponse(BaseModel):
     id: int
@@ -67,7 +67,7 @@ class BookResponse(BaseModel):
     updated_at: Optional[datetime] = None
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class BookBase(BaseModel):
     title: str
@@ -90,7 +90,7 @@ class BookResponse(BookBase):
     updated_at: Optional[datetime] = None
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Token(BaseModel):
     access_token: str
@@ -122,4 +122,4 @@ class ExchangeResponse(ExchangeBase):
     owner: UserResponse
 
     class Config:
-        from_attributes = True
+        orm_mode = True

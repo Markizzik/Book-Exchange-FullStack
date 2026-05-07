@@ -1,48 +1,60 @@
-import os
-from dotenv import load_dotenv
 import boto3
-from botocore.exceptions import ClientError
-from typing import Optional
+from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
 
-load_dotenv()
+from .settings import get_settings
+
 
 class MinIOClient:
     def __init__(self):
-        self.endpoint_url = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
-        self.access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-        self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-        self.bucket_name = os.getenv("MINIO_BUCKET_NAME", "book-covers")
-        self.secure = os.getenv("MINIO_SECURE", "False").lower() == "true"
-        
-        # Инициализация клиента MinIO
+        settings = get_settings()
+        self.endpoint_url = settings.minio_endpoint
+        self.public_base_url = settings.minio_public_base_url
+        self.access_key = settings.minio_access_key
+        self.secret_key = settings.minio_secret_key
+        self.bucket_name = settings.minio_bucket_name
+        self.secure = settings.minio_secure
+        self.ready = False
+
         self.client = boto3.client(
-            's3',
+            "s3",
             endpoint_url=self.endpoint_url,
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
-            use_ssl=self.secure
+            use_ssl=self.secure,
         )
-        
-        # Создание бакета, если он отсутствует
+
         self._ensure_bucket_exists()
-    
+
     def _ensure_bucket_exists(self):
-        """Создание бакета, если он отсутствует"""
+        """Создание бакета, если он отсутствует, без падения приложения."""
         try:
             self.client.head_bucket(Bucket=self.bucket_name)
             print(f"✅ Бакет {self.bucket_name} уже существует в MinIO")
-        except ClientError as e:
-            error_code = int(e.response['Error']['Code'])
-            if error_code == 404:
+            self.ready = True
+        except ClientError as error:
+            error_code = str(error.response.get("Error", {}).get("Code", ""))
+            if error_code in {"404", "NoSuchBucket", "NotFound"}:
                 print(f"🔧 Создание бакета {self.bucket_name} в MinIO...")
                 try:
                     self.client.create_bucket(Bucket=self.bucket_name)
                     print(f"✅ Бакет {self.bucket_name} успешно создан в MinIO")
+                    self.ready = True
                 except ClientError as create_error:
                     print(f"❌ Ошибка создания бакета в MinIO: {create_error}")
             else:
-                print(f"❌ Ошибка проверки бакета в MinIO: {e}")
-    
+                print(f"❌ Ошибка проверки бакета в MinIO: {error}")
+        except (EndpointConnectionError, BotoCoreError, OSError) as error:
+            print(f"⚠️ MinIO недоступен при старте приложения: {error}")
+            self.ready = False
+
+    def healthcheck(self) -> bool:
+        try:
+            self.client.head_bucket(Bucket=self.bucket_name)
+            self.ready = True
+        except (ClientError, EndpointConnectionError, BotoCoreError, OSError):
+            self.ready = False
+        return self.ready
+
     def upload_cover(self, file, filename: str) -> str:
         """Загрузка обложки книги в MinIO"""
         try:
@@ -50,27 +62,24 @@ class MinIOClient:
                 file,
                 self.bucket_name,
                 filename,
-                ExtraArgs={'ContentType': 'image/jpeg'}
+                ExtraArgs={"ContentType": "image/jpeg"},
             )
-            # Формирование публичного URL
-            protocol = "https" if self.secure else "http"
-            host = self.endpoint_url.split("://")[1]
-            return f"{protocol}://{host}/{self.bucket_name}/{filename}"
-        except ClientError as e:
-            print(f"❌ Ошибка загрузки файла в MinIO: {e}")
-            raise Exception(f"Ошибка загрузки обложки: {str(e)}")
-    
+            self.ready = True
+            return f"{self.public_base_url.rstrip('/')}/{filename}"
+        except (ClientError, EndpointConnectionError, BotoCoreError, OSError) as error:
+            print(f"❌ Ошибка загрузки файла в MinIO: {error}")
+            raise Exception(f"Ошибка загрузки обложки: {str(error)}")
+
     def delete_cover(self, filename: str) -> bool:
         """Удаление обложки книги из MinIO"""
         try:
-            self.client.delete_object(
-                Bucket=self.bucket_name,
-                Key=filename
-            )
+            self.client.delete_object(Bucket=self.bucket_name, Key=filename)
+            self.ready = True
             return True
-        except ClientError as e:
-            print(f"❌ Ошибка удаления файла из MinIO: {e}")
+        except (ClientError, EndpointConnectionError, BotoCoreError, OSError) as error:
+            print(f"❌ Ошибка удаления файла из MinIO: {error}")
+            self.ready = False
             return False
 
-# Создание экземпляра клиента
+
 minio_client = MinIOClient()

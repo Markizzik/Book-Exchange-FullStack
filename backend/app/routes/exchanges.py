@@ -8,6 +8,7 @@ from ..security import get_current_user
 from ..dependencies import get_socket_manager
 from fastapi import Request
 from ..permissions import has_permission, Permission
+from ..services.storage import attach_exchange_cover_url, attach_exchange_cover_urls
 
 router = APIRouter(prefix="/exchanges", tags=["exchanges"])
 
@@ -54,6 +55,7 @@ def create_exchange(
     db.add(db_exchange)
     db.commit()
     db.refresh(db_exchange)
+    attach_exchange_cover_url(db_exchange)
     background_tasks.add_task(socket_manager.notify_new_exchange, db_exchange.id)
     return db_exchange
 
@@ -63,6 +65,7 @@ def get_my_requests(
     current_user: User = Depends(get_current_user)
 ):
     exchanges = db.query(Exchange).filter(Exchange.requester_id == current_user.id).all()
+    attach_exchange_cover_urls(exchanges)
     return exchanges
 
 @router.get("/my-offers", response_model=list[ExchangeResponse])
@@ -71,6 +74,7 @@ def get_my_offers(
     current_user: User = Depends(get_current_user)
 ):
     exchanges = db.query(Exchange).filter(Exchange.owner_id == current_user.id).all()
+    attach_exchange_cover_urls(exchanges)
     return exchanges
 
 @router.put("/{exchange_id}/accept", response_model=ExchangeResponse)
@@ -108,6 +112,7 @@ def accept_exchange(
     
     db.commit()
     db.refresh(exchange)
+    attach_exchange_cover_url(exchange)
     background_tasks.add_task(socket_manager.notify_exchange_status_update, exchange.id, "accepted")
     return exchange
 
@@ -142,6 +147,7 @@ def reject_exchange(
     exchange.status = "rejected"
     db.commit()
     db.refresh(exchange)
+    attach_exchange_cover_url(exchange)
     background_tasks.add_task(socket_manager.notify_exchange_status_update, exchange.id, "rejected")
     return exchange
 

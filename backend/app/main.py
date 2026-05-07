@@ -1,14 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import os
-from pathlib import Path
 from fastapi.responses import Response
 import xml.etree.ElementTree as ET
-from .database import engine, Base
-from .routes import auth, books, exchanges
-from .websockets import SocketManager  # Импортируем SocketManager
 from contextlib import asynccontextmanager
+from sqlalchemy import text
+
+from .database import engine, Base
+from .minio_client import minio_client
+from .routes import auth, books, exchanges
+from .services.storage import attach_cover_urls
+from .settings import get_settings
+from .websockets import SocketManager  # Импортируем SocketManager
+
+settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,15 +32,13 @@ async def lifespan(app: FastAPI):
         print("🔌 Остановка вебсокет-сервера...")
         await socket_manager.sio.eio.shutdown()
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Book Exchange API", version="1.0.0", lifespan=lifespan)
 
 socket_manager = SocketManager()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,7 +57,7 @@ app.include_router(exchanges.router)
 
 @app.get("/robots.txt")
 async def robots_txt():
-    content = """
+    content = f"""
 User-agent: *
 Allow: /
 Allow: /catalog
@@ -66,7 +68,7 @@ Disallow: /profile/
 Disallow: /add-book
 Disallow: /edit-book
 
-Sitemap: http://localhost:3000/sitemap.xml
+Sitemap: {settings.public_site_url}/sitemap.xml
 """
     return Response(content=content, media_type="text/plain")
 
@@ -80,6 +82,7 @@ async def sitemap():
     db = SessionLocal()
     try:
         books = db.query(Book).filter(Book.status == "available").all()
+        attach_cover_urls(books)
         
         urlset = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
         
@@ -87,7 +90,7 @@ async def sitemap():
         for path in ["", "/catalog"]:
             url = ET.SubElement(urlset, "url")
             loc = ET.SubElement(url, "loc")
-            loc.text = f"http://localhost:3000{path}"
+            loc.text = f"{settings.public_site_url}{path}"
             priority = ET.SubElement(url, "priority")
             priority.text = "1.0" if path == "" else "0.9"
 
@@ -95,7 +98,7 @@ async def sitemap():
         for book in books:
             url = ET.SubElement(urlset, "url")
             loc = ET.SubElement(url, "loc")
-            loc.text = f"http://localhost:3000/book/{book.id}"
+            loc.text = f"{settings.public_site_url}/book/{book.id}"
             lastmod = ET.SubElement(url, "lastmod")
             lastmod.text = book.updated_at.isoformat() if book.updated_at else book.created_at.isoformat()
             priority = ET.SubElement(url, "priority")
@@ -111,13 +114,46 @@ def read_root():
 
 @app.get("/health")
 def health_check():
+    database_status = "unhealthy"
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        database_status = "healthy"
+    except Exception:
+        database_status = "unhealthy"
+
     return {
-        "status": "healthy",
-        "database": "postgresql",
+        "status": "healthy" if database_status == "healthy" else "degraded",
+        "database": database_status,
+        "storage": "healthy" if minio_client.healthcheck() else "degraded",
         "websockets": "enabled",
         "online_users": len(socket_manager.online_users)
     }
 
+
+@app.get("/health/live")
+def health_live():
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+def health_ready():
+    database_ready = False
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        database_ready = True
+    except Exception:
+        database_ready = False
+
+    storage_ready = minio_client.healthcheck()
+    overall_status = "ready" if database_ready and storage_ready else "degraded"
+    return {
+        "status": overall_status,
+        "database": "ready" if database_ready else "unavailable",
+        "storage": "ready" if storage_ready else "unavailable",
+    }
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=settings.app_host, port=settings.app_port)

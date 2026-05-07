@@ -1,0 +1,13 @@
+.env
+.env.*
+.pytest_cache
+.coverage
+__pycache__
+*.pyc
+*.pyo
+*.sqlite3
+.venv
+tests
+uploads
+mc.exe
+minio.exe

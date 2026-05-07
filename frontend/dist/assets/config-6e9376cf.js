@@ -1,0 +1,1 @@
+const t=(r,n)=>(r||n).trim().replace(/\/+$/,"")||n,i=t({}.VITE_SITE_URL,window.location.origin),o=({}.VITE_COVER_FALLBACK_BASE_URL||"").trim().replace(/\/+$/,""),l=r=>!r||!o?null:`${o}/${r}`;export{i as S,l as b};

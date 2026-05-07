@@ -1,0 +1,23 @@
+:80 {
+    encode gzip zstd
+
+    @health path /healthz
+    handle @health {
+        respond "ok" 200
+    }
+
+    @api path /api/* /health /health/* /robots.txt /sitemap.xml
+    handle @api {
+        uri strip_prefix /api
+        reverse_proxy backend:8000
+    }
+
+    @ws path /ws/*
+    handle @ws {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+}
